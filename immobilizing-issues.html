@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Immobilizing Issues WBR</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #fff; color: #1a1a1a; padding: 24px; }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 20px; }
+  .toggle-wrap { display: flex; gap: 6px; margin-bottom: 20px; }
+  .toggle-btn { font-size: 12px; padding: 4px 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #555; cursor: pointer; }
+  .toggle-btn.active { background: #f0f0f0; color: #111; font-weight: 500; border-color: #bbb; }
+  .section { margin-bottom: 32px; }
+  .model-title { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 2px; }
+  .model-sub { font-size: 11px; color: #aaa; margin-bottom: 10px; }
+  .legend-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #555; cursor: pointer; padding: 2px 8px; border-radius: 4px; border: 1px solid #eee; background: #fafafa; user-select: none; }
+  .legend-item:hover { border-color: #ccc; }
+  .legend-item.muted { opacity: 0.3; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .chart-wrap { position: relative; width: 100%; }
+  hr { border: none; border-top: 1px solid #f0f0f0; margin: 8px 0 24px; }
+</style>
+</head>
+<body>
+<h1>Immobilizing Issues — WBR</h1>
+<p class="subtitle">Ocorrências por peça · Semanas 05/01 a 09/03/2026</p>
+<div class="toggle-wrap" id="metricToggle">
+  <button class="toggle-btn active" data-metric="pct">% da frota</button>
+  <button class="toggle-btn" data-metric="abs">Ocorrências absolutas</button>
+</div>
+<div class="section">
+  <p class="model-title">VAMMO COMFORT</p>
+  <p class="model-sub">Clique na legenda para mostrar/ocultar peças</p>
+  <div class="legend-wrap" id="legend-comfort"></div>
+  <div class="chart-wrap" style="height:300px"><canvas id="chart-comfort"></canvas></div>
+</div>
+<hr>
+<div class="section">
+  <p class="model-title">VMOTO CPX</p>
+  <p class="model-sub">Clique na legenda para mostrar/ocultar peças</p>
+  <div class="legend-wrap" id="legend-cpx"></div>
+  <div class="chart-wrap" style="height:300px"><canvas id="chart-cpx"></canvas></div>
+</div>
+<script>
+const rawComfort=[{s:"05/01",c:"Controller",o:1,f:1131},{s:"05/01",c:"False Positive",o:6,f:1131},{s:"05/01",c:"IOT",o:5,f:1131},{s:"05/01",c:"Motor",o:1,f:1131},{s:"05/01",c:"Side Stand Sensor",o:1,f:1131},{s:"05/01",c:"Throttle",o:2,f:1131},{s:"12/01",c:"Alarm",o:4,f:1191},{s:"12/01",c:"Controller",o:1,f:1191},{s:"12/01",c:"False Positive",o:1,f:1191},{s:"12/01",c:"IOT",o:3,f:1191},{s:"12/01",c:"Main Harness",o:2,f:1191},{s:"12/01",c:"Motor",o:2,f:1191},{s:"12/01",c:"Side Stand Sensor",o:1,f:1191},{s:"12/01",c:"Throttle",o:2,f:1191},{s:"19/01",c:"Alarm",o:1,f:1211},{s:"19/01",c:"Controller",o:4,f:1211},{s:"19/01",c:"False Positive",o:5,f:1211},{s:"19/01",c:"IOT",o:6,f:1211},{s:"19/01",c:"Main Harness",o:2,f:1211},{s:"19/01",c:"Motor",o:5,f:1211},{s:"19/01",c:"Secondary Harness",o:1,f:1211},{s:"19/01",c:"Throttle",o:3,f:1211},{s:"26/01",c:"Battery",o:1,f:1229},{s:"26/01",c:"Controller",o:1,f:1229},{s:"26/01",c:"False Positive",o:5,f:1229},{s:"26/01",c:"IOT",o:7,f:1229},{s:"26/01",c:"Motor",o:1,f:1229},{s:"26/01",c:"Secondary Harness",o:2,f:1229},{s:"26/01",c:"Side Stand Sensor",o:3,f:1229},{s:"26/01",c:"Throttle",o:1,f:1229},{s:"02/02",c:"Alarm",o:2,f:1236},{s:"02/02",c:"Controller",o:1,f:1236},{s:"02/02",c:"False Positive",o:3,f:1236},{s:"02/02",c:"Hall Sensor",o:1,f:1236},{s:"02/02",c:"IOT",o:2,f:1236},{s:"02/02",c:"Motor",o:3,f:1236},{s:"02/02",c:"Side Stand Sensor",o:4,f:1236},{s:"02/02",c:"Throttle",o:1,f:1236},{s:"09/02",c:"Backlog",o:2,f:1277},{s:"09/02",c:"Controller",o:1,f:1277},{s:"09/02",c:"False Positive",o:5,f:1277},{s:"09/02",c:"IOT",o:1,f:1277},{s:"09/02",c:"Motor",o:2,f:1277},{s:"16/02",c:"Controller",o:1,f:1336},{s:"16/02",c:"ECU",o:1,f:1336},{s:"16/02",c:"False Positive",o:4,f:1336},{s:"16/02",c:"IOT",o:2,f:1336},{s:"16/02",c:"Motor",o:2,f:1336},{s:"16/02",c:"Secondary Harness",o:1,f:1336},{s:"16/02",c:"Side Stand Sensor",o:1,f:1336},{s:"16/02",c:"Throttle",o:4,f:1336},{s:"23/02",c:"Backlog",o:1,f:1389},{s:"23/02",c:"Circuit Breaker",o:1,f:1389},{s:"23/02",c:"Controller",o:4,f:1389},{s:"23/02",c:"False Positive",o:6,f:1389},{s:"23/02",c:"IOT",o:2,f:1389},{s:"23/02",c:"Main Harness",o:1,f:1389},{s:"23/02",c:"Motor",o:1,f:1389},{s:"23/02",c:"Side Stand Sensor",o:2,f:1389},{s:"23/02",c:"Throttle",o:1,f:1389},{s:"02/03",c:"Backlog",o:3,f:1427},{s:"02/03",c:"Controller",o:2,f:1427},{s:"02/03",c:"False Positive",o:8,f:1427},{s:"02/03",c:"Hall Sensor",o:1,f:1427},{s:"02/03",c:"IOT",o:3,f:1427},{s:"02/03",c:"Main Harness",o:3,f:1427},{s:"02/03",c:"Motor",o:1,f:1427},{s:"02/03",c:"Secondary Harness",o:2,f:1427},{s:"02/03",c:"Throttle",o:1,f:1427},{s:"09/03",c:"Backlog",o:8,f:1444},{s:"09/03",c:"Controller",o:4,f:1444},{s:"09/03",c:"False Positive",o:12,f:1444},{s:"09/03",c:"IOT",o:1,f:1444},{s:"09/03",c:"Secondary Harness",o:7,f:1444},{s:"09/03",c:"Side Stand Sensor",o:1,f:1444},{s:"09/03",c:"Throttle",o:5,f:1444}];
+const rawCpx=[{s:"05/01",c:"Alarm",o:1,f:2348},{s:"05/01",c:"Battery",o:3,f:2348},{s:"05/01",c:"Circuit Breaker",o:3,f:2348},{s:"05/01",c:"Controller",o:11,f:2348},{s:"05/01",c:"False Positive",o:9,f:2348},{s:"05/01",c:"IOT",o:14,f:2348},{s:"05/01",c:"Main Harness",o:1,f:2348},{s:"05/01",c:"No OS Identified",o:1,f:2348},{s:"05/01",c:"Secondary Harness",o:7,f:2348},{s:"05/01",c:"Throttle",o:7,f:2348},{s:"12/01",c:"Alarm",o:7,f:2339},{s:"12/01",c:"Battery",o:2,f:2339},{s:"12/01",c:"Circuit Breaker",o:2,f:2339},{s:"12/01",c:"Controller",o:11,f:2339},{s:"12/01",c:"False Positive",o:15,f:2339},{s:"12/01",c:"IOT",o:12,f:2339},{s:"12/01",c:"Main Harness",o:2,f:2339},{s:"12/01",c:"Motor",o:2,f:2339},{s:"12/01",c:"Secondary Harness",o:13,f:2339},{s:"12/01",c:"Side Stand Sensor",o:6,f:2339},{s:"12/01",c:"Throttle",o:11,f:2339},{s:"19/01",c:"Alarm",o:1,f:2319},{s:"19/01",c:"Battery",o:4,f:2319},{s:"19/01",c:"Circuit Breaker",o:3,f:2319},{s:"19/01",c:"Controller",o:12,f:2319},{s:"19/01",c:"False Positive",o:9,f:2319},{s:"19/01",c:"Hall Sensor",o:1,f:2319},{s:"19/01",c:"IOT",o:8,f:2319},{s:"19/01",c:"Main Harness",o:3,f:2319},{s:"19/01",c:"Motor",o:1,f:2319},{s:"19/01",c:"No OS Identified",o:1,f:2319},{s:"19/01",c:"Secondary Harness",o:3,f:2319},{s:"19/01",c:"Side Stand Sensor",o:3,f:2319},{s:"19/01",c:"Throttle",o:8,f:2319},{s:"26/01",c:"Alarm",o:1,f:2348},{s:"26/01",c:"Circuit Breaker",o:4,f:2348},{s:"26/01",c:"Controller",o:13,f:2348},{s:"26/01",c:"ECU",o:1,f:2348},{s:"26/01",c:"False Positive",o:12,f:2348},{s:"26/01",c:"IOT",o:8,f:2348},{s:"26/01",c:"Main Harness",o:3,f:2348},{s:"26/01",c:"No OS Identified",o:1,f:2348},{s:"26/01",c:"Secondary Harness",o:8,f:2348},{s:"26/01",c:"Side Stand Sensor",o:5,f:2348},{s:"26/01",c:"Throttle",o:11,f:2348},{s:"02/02",c:"Alarm",o:3,f:2377},{s:"02/02",c:"Battery",o:6,f:2377},{s:"02/02",c:"Circuit Breaker",o:4,f:2377},{s:"02/02",c:"Controller",o:12,f:2377},{s:"02/02",c:"ECU",o:2,f:2377},{s:"02/02",c:"False Positive",o:8,f:2377},{s:"02/02",c:"IOT",o:6,f:2377},{s:"02/02",c:"Main Harness",o:3,f:2377},{s:"02/02",c:"Motor",o:2,f:2377},{s:"02/02",c:"Secondary Harness",o:9,f:2377},{s:"02/02",c:"Side Stand Sensor",o:3,f:2377},{s:"02/02",c:"Throttle",o:4,f:2377},{s:"09/02",c:"Backlog",o:3,f:2411},{s:"09/02",c:"Battery",o:5,f:2411},{s:"09/02",c:"Circuit Breaker",o:6,f:2411},{s:"09/02",c:"Controller",o:5,f:2411},{s:"09/02",c:"False Positive",o:12,f:2411},{s:"09/02",c:"IOT",o:17,f:2411},{s:"09/02",c:"Main Harness",o:1,f:2411},{s:"09/02",c:"Motor",o:2,f:2411},{s:"09/02",c:"Secondary Harness",o:7,f:2411},{s:"09/02",c:"Side Stand Sensor",o:8,f:2411},{s:"09/02",c:"Throttle",o:10,f:2411},{s:"16/02",c:"Alarm",o:1,f:2425},{s:"16/02",c:"Backlog",o:1,f:2425},{s:"16/02",c:"Battery",o:3,f:2425},{s:"16/02",c:"Controller",o:17,f:2425},{s:"16/02",c:"False Positive",o:9,f:2425},{s:"16/02",c:"IOT",o:12,f:2425},{s:"16/02",c:"Main Harness",o:2,f:2425},{s:"16/02",c:"Motor",o:2,f:2425},{s:"16/02",c:"No OS Identified",o:1,f:2425},{s:"16/02",c:"Secondary Harness",o:9,f:2425},{s:"16/02",c:"Side Stand Sensor",o:1,f:2425},{s:"16/02",c:"Throttle",o:15,f:2425},{s:"23/02",c:"Backlog",o:3,f:2429},{s:"23/02",c:"Battery",o:2,f:2429},{s:"23/02",c:"Controller",o:8,f:2429},{s:"23/02",c:"False Positive",o:17,f:2429},{s:"23/02",c:"IOT",o:18,f:2429},{s:"23/02",c:"In Loco",o:2,f:2429},{s:"23/02",c:"Main Harness",o:3,f:2429},{s:"23/02",c:"Motor",o:3,f:2429},{s:"23/02",c:"Secondary Harness",o:6,f:2429},{s:"23/02",c:"Throttle",o:12,f:2429},{s:"02/03",c:"Backlog",o:7,f:2469},{s:"02/03",c:"Circuit Breaker",o:1,f:2469},{s:"02/03",c:"Controller",o:12,f:2469},{s:"02/03",c:"DCDC",o:1,f:2469},{s:"02/03",c:"False Positive",o:17,f:2469},{s:"02/03",c:"IOT",o:8,f:2469},{s:"02/03",c:"In Loco",o:1,f:2469},{s:"02/03",c:"Motor",o:3,f:2469},{s:"02/03",c:"Side Stand Sensor",o:4,f:2469},{s:"02/03",c:"Throttle",o:9,f:2469},{s:"09/03",c:"Backlog",o:12,f:2530},{s:"09/03",c:"Battery",o:4,f:2530},{s:"09/03",c:"Controller",o:4,f:2530},{s:"09/03",c:"False Positive",o:26,f:2530},{s:"09/03",c:"IOT",o:6,f:2530},{s:"09/03",c:"Main Harness",o:1,f:2530},{s:"09/03",c:"Motor",o:2,f:2530},{s:"09/03",c:"Secondary Harness",o:4,f:2530},{s:"09/03",c:"Side Stand Sensor",o:7,f:2530},{s:"09/03",c:"Throttle",o:4,f:2530}];
+const PAL=["#1D9E75","#378ADD","#D85A30","#BA7517","#D4537E","#534AB7","#639922","#E24B4A","#888780","#0F6E56","#185FA5","#993C1D","#854F0B","#993556","#3B6D11","#A32D2D","#5F5E5A"];
+function cmap(parts){const m={};parts.forEach((p,i)=>m[p]=PAL[i%PAL.length]);return m;}
+function parts(r){return[...new Set(r.map(d=>d.c))].sort();}
+function weeks(r){return[...new Set(r.map(d=>d.s))];}
+function datasets(raw,metric,cm,hidden){return parts(raw).map(p=>{const data=weeks(raw).map(w=>{const r=raw.find(d=>d.s===w&&d.c===p);return r?(metric==='pct'+''?parseFloat(((r.o/r.f)*100).toFixed(3)):r.o):null;});return{label:p,data,borderColor:cm[p],backgroundColor:cm[p]+'22',borderWidth:2,pointRadius:3,pointHoverRadius:5,tension:0.3,spanGaps:false,fill:false,hidden:hidden.has(p)};});}
+const cmC=cmap(parts(rawComfort)),cmX=cmap(parts(rawCpx)),hC=new Set(),hX=new Set();
+let cC,cX,metric='pct';
+function opts(m){return{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.parsed.y===null?null:`${ctx.dataset.label}: ${m==='pct'?ctx.parsed.y.toFixed(2)+'%':ctx.parsed.y}`},filter:i=>i.parsed.y!==null}},scales:{x:{ticks:{font:{size:11},maxRotation:45,autoSkip:false},grid:{color:'rgba(0,0,0,0.05)'}},y:{beginAtZero:true,ticks:{font:{size:11},callback:v=>m==='pct'?v.toFixed(2)+'%':v},grid:{color:'rgba(0,0,0,0.05)'},title:{display:true,text:m==='pct'?'% da frota':'Ocorrências',font:{size:11},color:'#aaa'}}}};}
+function legend(raw,cm,hidden,elId,getChart){const el=document.getElementById(elId);el.innerHTML=parts(raw).map(p=>`<span class="legend-item${hidden.has(p)?' muted':''}" data-part="${p}"><span class="legend-dot" style="background:${cm[p]}"></span>${p}</span>`).join('');el.querySelectorAll('.legend-item').forEach(item=>{item.addEventListener('click',()=>{const p=item.dataset.part;if(hidden.has(p)){hidden.delete(p);item.classList.remove('muted');}else{hidden.add(p);item.classList.add('muted');}const ch=getChart();if(ch){const ds=ch.data.datasets.find(d=>d.label===p);if(ds){ds.hidden=hidden.has(p);ch.update();}}});});}
+function init(m){if(cC)cC.destroy();cC=new Chart(document.getElementById('chart-comfort'),{type:'line',data:{labels:weeks(rawComfort),datasets:datasets(rawComfort,m,cmC,hC)},options:opts(m)});if(cX)cX.destroy();cX=new Chart(document.getElementById('chart-cpx'),{type:'line',data:{labels:weeks(rawCpx),datasets:datasets(rawCpx,m,cmX,hX)},options:opts(m)});}
+legend(rawComfort,cmC,hC,'legend-comfort',()=>cC);
+legend(rawCpx,cmX,hX,'legend-cpx',()=>cX);
+init(metric);
+document.getElementById('metricToggle').addEventListener('click',e=>{const btn=e.target.closest('.toggle-btn');if(!btn)return;document.querySelectorAll('.toggle-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');metric=btn.dataset.metric;init(metric);});
+</script>
+</body>
+</html>
