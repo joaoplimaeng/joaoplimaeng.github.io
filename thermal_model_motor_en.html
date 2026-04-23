@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thermal Analysis — Hub Electric Motor</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0d0f10;
+    --bg2: #141618;
+    --bg3: #1c1f22;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8eaed;
+    --muted: #7a8290;
+    --accent: #e8593a;
+    --accent2: #f0a070;
+    --blue: #4a9eff;
+    --purple: #9b7fe8;
+    --green: #3ecf8e;
+    --yellow: #f5c842;
+    --danger-bg: rgba(232,89,58,0.12);
+    --danger-border: rgba(232,89,58,0.35);
+    --warn-bg: rgba(245,200,66,0.1);
+    --warn-border: rgba(245,200,66,0.3);
+    --info-bg: rgba(74,158,255,0.1);
+    --info-border: rgba(74,158,255,0.3);
+    --ok-bg: rgba(62,207,142,0.1);
+    --ok-border: rgba(62,207,142,0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .mono { font-family: 'IBM Plex Mono', monospace; }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 2.5rem 3rem 2rem;
+    position: relative;
+    overflow: hidden;
+  }
+  header::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 320px; height: 320px;
+    background: radial-gradient(circle, rgba(232,89,58,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+  header h1 {
+    font-size: 2rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+  }
+  header h1 span { color: var(--accent); }
+  .header-sub {
+    color: var(--muted);
+    font-size: 14px;
+    max-width: 600px;
+  }
+  .header-meta {
+    display: flex;
+    gap: 2rem;
+    margin-top: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .meta-item { font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--muted); }
+  .meta-item span { color: var(--text); }
+
+  /* ── LAYOUT ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 3rem; }
+
+  section {
+    padding: 2.5rem 3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin-bottom: 0.75rem;
+  }
+
+  p { color: #b0b8c4; margin-bottom: 0.75rem; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── THEORY BLOCKS ── */
+  .theory-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .theory-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.25rem 1.5rem;
+  }
+  .theory-card h3 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .theory-card h3::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+  .theory-card p { font-size: 13px; color: var(--muted); margin: 0; }
+
+  /* ── EQUATION ── */
+  .eq-block {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 6px 6px 0;
+    padding: 1.25rem 1.5rem;
+    margin: 1.25rem 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 14px;
+    line-height: 2;
+  }
+  .eq-block .eq-title {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+    font-family: 'IBM Plex Sans', sans-serif;
+  }
+  .eq-main { color: var(--accent2); font-size: 15px; }
+  .eq-vars { color: var(--muted); font-size: 12px; margin-top: 0.5rem; line-height: 1.8; }
+  .eq-vars span { color: var(--text); }
+
+  /* ── FAILURE TIMELINE ── */
+  .timeline {
+    margin-top: 1.5rem;
+    position: relative;
+    padding-left: 2rem;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 7px; top: 8px; bottom: 8px;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--accent), var(--yellow), rgba(232,89,58,0.2));
+  }
+  .timeline-item {
+    position: relative;
+    margin-bottom: 1.25rem;
+    padding-left: 0.75rem;
+  }
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -1.55rem; top: 7px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    background: var(--bg);
+  }
+  .timeline-item.critical::before { background: var(--accent); }
+  .tl-step {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 2px;
+  }
+  .tl-text { font-size: 14px; color: var(--muted); }
+  .tl-text strong { color: var(--text); font-weight: 500; }
+
+  /* ── METRICS ── */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 12px;
+    margin: 1.5rem 0;
+  }
+  .metric-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+  }
+  .metric-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .metric-value { font-family: 'IBM Plex Mono', monospace; font-size: 22px; font-weight: 500; color: var(--text); }
+  .metric-unit { font-size: 12px; color: var(--muted); margin-left: 3px; }
+
+  /* ── SLIDERS ── */
+  .sliders-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+  }
+  .slider-block { }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+  .slider-name { font-size: 13px; color: var(--text); }
+  .slider-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent2);
+  }
+  .slider-desc { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 4px;
+    background: var(--bg3);
+    border-radius: 2px;
+    outline: none;
+    border: 1px solid var(--border2);
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+    border: 2px solid var(--bg);
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    background: transparent;
+  }
+
+  /* ── RESULT ── */
+  .result-banner {
+    border-radius: 6px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    border: 1px solid;
+    font-size: 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .result-banner.danger { background: var(--danger-bg); border-color: var(--danger-border); color: #f0a090; }
+  .result-banner.warn { background: var(--warn-bg); border-color: var(--warn-border); color: #f0d070; }
+  .result-banner.info { background: var(--info-bg); border-color: var(--info-border); color: #80b8ff; }
+  .result-banner.ok { background: var(--ok-bg); border-color: var(--ok-border); color: #60dfa0; }
+  .banner-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  .results-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 12px;
+    margin: 1rem 0;
+  }
+  .result-card {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 0.9rem 1rem;
+    text-align: center;
+  }
+  .result-card.highlight { border-color: var(--accent); background: rgba(232,89,58,0.08); }
+  .result-card .rlabel { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .result-card .rval {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 20px;
+    font-weight: 500;
+  }
+  .result-card .runit { font-size: 12px; color: var(--muted); }
+
+  /* ── CHART ── */
+  .chart-wrapper {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+  .chart-title { font-size: 13px; font-weight: 500; }
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .legend-line {
+    width: 20px; height: 2px;
+    border-radius: 1px;
+  }
+  .legend-line.dashed {
+    background: none;
+    border-top: 2px dashed var(--purple);
+  }
+
+  .chart-canvas-wrap { position: relative; height: 280px; }
+
+  /* ── FINDINGS ── */
+  .findings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    margin-top: 1.5rem;
+  }
+  .finding {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.1rem 1.25rem;
+  }
+  .finding-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .finding h3 { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .finding p { font-size: 13px; color: var(--muted); margin: 0; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 700px) {
+    header, section { padding: 1.5rem; }
+    .theory-grid, .sliders-grid, .findings-grid { grid-template-columns: 1fr; }
+    .metrics-grid, .results-row { grid-template-columns: repeat(2, 1fr); }
+    h1 { font-size: 1.4rem; }
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  section { animation: fadeIn 0.4s ease forwards; }
+
+  .threshold-line {
+    width: 100%; height: 1px;
+    background: repeating-linear-gradient(90deg, var(--accent) 0px, var(--accent) 6px, transparent 6px, transparent 12px);
+    margin: 0.75rem 0;
+    opacity: 0.4;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-tag">Reliability Engineering · Thermal Failure Analysis</div>
+  <h1>RC Thermal Model —<br><span>Winding/Sensor Temperature Delta</span></h1>
+  <p class="header-sub">Quantitative estimate of the difference between the actual stator winding temperature and the temperature read by the mispositioned sensor.</p>
+  <div class="header-meta">
+    <div class="meta-item">Event: <span>16/04/2026 — 15:12 a 18:02</span></div>
+    <div class="meta-item">Motor: <span>Hub BLDC — VMOTO CPX/Comfort</span></div>
+    <div class="meta-item">Data: <span>IoT Telemetry + Image Analysis</span></div>
+  </div>
+</header>
+
+<!-- TEORIA -->
+<section>
+  <div class="section-label">01 — Theoretical background</div>
+  <h2>Why is there a ΔT between the winding and the sensor?</h2>
+  <p>Heat generated in the stator windings must travel a physical path to reach the temperature sensor. Each material along that path (copper, insulating varnish, laminated core, encapsulation resin) presents a resistance to thermal conduction. This resistance, combined with the dissipated power, creates a permanent temperature difference during operation.</p>
+  <p>The RC thermal model is the simplest and most effective representation for quantifying this phenomenon: thermal resistance (Rth) determines the steady-state gradient, and thermal capacitance (Cth) determines how quickly the system responds to load changes.</p>
+
+  <div class="theory-grid">
+    <div class="theory-card">
+      <h3>Thermal resistance (Rth)</h3>
+      <p>Analogous to electrical resistance. Determines the steady-state ΔT for a given dissipated power. Unit: °C/W. The higher the Rth between winding and sensor, the larger the undetected gradient.</p>
+    </div>
+    <div class="theory-card">
+      <h3>Thermal capacitance (Cth)</h3>
+      <p>Analogous to a capacitor. Represents the thermal mass of the system — the larger it is, the slower the response. Determines the time constant τ = Rth × Cth, which defines how many minutes the system takes to stabilise.</p>
+    </div>
+    <div class="theory-card">
+      <h3>Loss power (P_loss)</h3>
+      <p>Fraction of electrical power converted to heat through Joule losses in the windings, iron losses (hysteresis + eddy currents) and friction. Estimated as: P_electrical × (1 − η).</p>
+    </div>
+    <div class="theory-card">
+      <h3>Time constant (τ)</h3>
+      <p>Extracted directly from telemetry by the temperature rise rate observed in the chart. Between 15:12 and 15:22, temperature rose ~95°C in ~10 min, indicating τ ≈ 14 min for this motor.</p>
+    </div>
+  </div>
+
+  <div class="eq-block">
+    <div class="eq-title">Main equation — steady state</div>
+    <div class="eq-main">T_winding = T_sensor_read + (P_loss × Rth_winding→sensor)</div>
+    <div class="eq-vars">
+      where:<br>
+      <span>P_perda</span> = P_elétrica × (1 − η) &nbsp;&nbsp; [W]<br>
+      <span>Rth</span> = thermal resistance between winding and sensor &nbsp;&nbsp; [°C/W]<br>
+      <span>η</span> = motor efficiency &nbsp;&nbsp; [dimensionless, 0–1]
+    </div>
+  </div>
+
+  <div class="eq-block">
+    <div class="eq-title">Transient response — temperature as a function of time</div>
+    <div class="eq-main">T(t) = T_amb + (P_perda × Rth) × (1 − e<sup>−t/τ</sup>)</div>
+    <div class="eq-vars">
+      <span>τ</span> = Rth × Cth &nbsp;&nbsp; (time constant, estimated at ~14 min from telemetry)
+    </div>
+  </div>
+</section>
+
+<!-- SEQUÊNCIA DE FALHA -->
+<section>
+  <div class="section-label">02 — Reconstructed failure sequence</div>
+  <h2>How sensor misplacement led to failure</h2>
+  <p>The telemetry from the 16/04/2026 event allows the failure progression to be reconstructed based on motor temperature, DC current, Iq (torque) and electrical power data.</p>
+
+  <div class="timeline">
+    <div class="timeline-item">
+      <div class="tl-step">Initial condition</div>
+      <div class="tl-text"><strong>Sensor positioned in the resin between 2 o'clock and 3 o'clock</strong>, outside the windings. Thermal lag inherent to the positioning.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="tl-step">15:12 — Start of operation</div>
+      <div class="tl-text">Temperature rises quickly. <strong>Sensor already reads ~120–125°C within 10 minutes</strong>, but windings are already significantly hotter.</div>
+    </div>
+    <div class="timeline-item">
+      <div class="tl-step">15:12–17:00 — Continuous operation above threshold</div>
+      <div class="tl-text"><strong>Temperatura do motor permanece acima de 130°C por ~2 horas.</strong> Controller does not trigger protection. Winding insulation varnish progressively degrades under sustained heat.</div>
+    </div>
+    <div class="timeline-item critical">
+      <div class="tl-step">~16:40 — Onset of electrical failure</div>
+      <div class="tl-text">Point of <strong>lowest dielectric strength</strong> enters inter-turn short circuit. Iq current begins showing anomalous behaviour.</div>
+    </div>
+    <div class="timeline-item critical">
+      <div class="tl-step">17:52–18:02 — Motor collapse</div>
+      <div class="tl-text"><strong>Iq drops sharply</strong> — motor loses torque-generating capacity. Operator notices severe power loss. Localised burn in the affected sector (10 o'clock–2 o'clock).</div>
+    </div>
+    <div class="timeline-item critical">
+      <div class="tl-step">Terminal failure</div>
+      <div class="tl-text"><strong>Complete short circuit in the affected phase.</strong> Hall sensor board also damaged by heat/voltage propagation.</div>
+    </div>
+  </div>
+</section>
+
+<!-- DADOS EXTRAÍDOS -->
+<section>
+  <div class="section-label">03 — Data extracted from telemetry</div>
+  <h2>Observed parameters — 16/04/2026</h2>
+  <p>Values read directly from the telemetry chart. Used as inputs to the thermal model below.</p>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-label">Sensor T — peak reading</div>
+      <div class="metric-value">125<span class="metric-unit">°C</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Controller configured threshold</div>
+      <div class="metric-value">130<span class="metric-unit">°C</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Average electrical power</div>
+      <div class="metric-value">3500<span class="metric-unit">W</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Peak power</div>
+      <div class="metric-value">6200<span class="metric-unit">W</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Time constant τ (estimated)</div>
+      <div class="metric-value">~14<span class="metric-unit">min</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Average DC current</div>
+      <div class="metric-value">~60<span class="metric-unit">A</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Duration above 130°C</div>
+      <div class="metric-value">&gt;2<span class="metric-unit">h</span></div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Estimated ambient T (SP, April)</div>
+      <div class="metric-value">28<span class="metric-unit">°C</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- CALCULADORA -->
+<section>
+  <div class="section-label">04 — Interactive calculator</div>
+  <h2>RC Thermal Model — ajuste os parâmetros</h2>
+  <p>The two parameters with the greatest uncertainty are motor efficiency (η) and the thermal resistance between winding and sensor (Rth). Adjust according to the manufacturer datasheet for a precise quantitative result.</p>
+
+  <div class="sliders-grid">
+    <div class="slider-block">
+      <div class="slider-header">
+        <span class="slider-name">Motor efficiency η</span>
+        <span class="slider-val mono" id="eta-out">85%</span>
+      </div>
+      <p class="slider-desc">Typical BLDC hub motors: 82–90%. Lower values = more heat generated.</p>
+      <input type="range" min="75" max="92" value="85" step="1" id="eta">
+    </div>
+    <div class="slider-block">
+      <div class="slider-header">
+        <span class="slider-name">Rth winding → sensor (°C/W)</span>
+        <span class="slider-val mono" id="rth-out">0.020</span>
+      </div>
+      <p class="slider-desc">Sensor in peripheral resin (your case): 0.015–0.040. Sensor inside windings: 0.005–0.012.</p>
+      <input type="range" min="0.005" max="0.05" value="0.02" step="0.001" id="rth">
+    </div>
+    <div class="slider-block">
+      <div class="slider-header">
+        <span class="slider-name">Average operating power (W)</span>
+        <span class="slider-val mono" id="pwr-out">3500 W</span>
+      </div>
+      <p class="slider-desc">Average value extracted from the electrical power chart during acceleration cycles.</p>
+      <input type="range" min="1500" max="5500" value="3500" step="100" id="pwr">
+    </div>
+    <div class="slider-block">
+      <div class="slider-header">
+        <span class="slider-name">Sensor temperature reading (°C)</span>
+        <span class="slider-val mono" id="tsens-out">125 °C</span>
+      </div>
+      <p class="slider-desc">Peak reading from telemetry sensor. Use 125°C for the event recorded on 16/04.</p>
+      <input type="range" min="80" max="130" value="125" step="1" id="tsens">
+    </div>
+  </div>
+
+  <div class="results-row">
+    <div class="result-card">
+      <div class="rlabel">Thermal loss</div>
+      <div class="rval" id="r-ploss">—</div>
+      <div class="runit">W</div>
+    </div>
+    <div class="result-card">
+      <div class="rlabel">ΔT winding → sensor</div>
+      <div class="rval" id="r-delta">—</div>
+      <div class="runit">°C</div>
+    </div>
+    <div class="result-card highlight">
+      <div class="rlabel">Estimated winding T</div>
+      <div class="rval" id="r-tbob">—</div>
+      <div class="runit">°C</div>
+    </div>
+    <div class="result-card">
+      <div class="rlabel">Winding T at peak (6200W)</div>
+      <div class="rval" id="r-tpeak">—</div>
+      <div class="runit">°C</div>
+    </div>
+  </div>
+
+  <div id="verdict" class="result-banner info">
+    <span class="banner-icon">◎</span>
+    <span id="verdict-text">Calculando...</span>
+  </div>
+
+  <div class="chart-wrapper">
+    <div class="chart-header">
+      <span class="chart-title">Temperature over the event — sensor vs. estimated winding</span>
+      <div class="legend">
+        <div class="legend-item">
+          <div class="legend-line dashed"></div>
+          Sensor T (read)
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background: var(--accent);"></div>
+          Winding T (estimated)
+        </div>
+        <div class="legend-item">
+          <div class="legend-line" style="background: var(--yellow); opacity:0.6;"></div>
+          130°C threshold
+        </div>
+      </div>
+    </div>
+    <div class="chart-canvas-wrap">
+      <canvas id="chart" role="img" aria-label="Comparison between sensor-read temperature and estimated winding temperature over the 16/04/2026 event">Sensor temperature vs estimated winding temperature during the failure event.</canvas>
+    </div>
+  </div>
+</section>
+
+<!-- CONCLUSÕES -->
+<section>
+  <div class="section-label">05 — Analysis conclusions</div>
+  <h2>Findings and recommendations</h2>
+
+  <div class="findings-grid">
+    <div class="finding">
+      <div class="finding-num">FAILURE 01</div>
+      <h3>Mispositioned sensor</h3>
+      <p>Sensor in peripheral resin (2–3 o'clock) creates significant thermal lag. The resin's thermal resistance prevents accurate reading of actual winding temperature, generating an estimated ΔT of 10–30°C depending on the actual Rth.</p>
+    </div>
+    <div class="finding">
+      <div class="finding-num">FAILURE 02</div>
+      <h3>Controller protection did not activate</h3>
+      <p>Even with the sensor reading close to the 130°C threshold, the controller did not trigger derating or shutdown. This is independent of sensor positioning — it indicates an additional firmware or configuration issue.</p>
+    </div>
+    <div class="finding">
+      <div class="finding-num">FINDING 01</div>
+      <h3>Prolonged exposure above 130°C</h3>
+      <p>Motor temperature above threshold for more than 2 continuous hours. Class B insulation varnish (130°C) irreversibly collapses under these conditions, regardless of prior thermal cycle count.</p>
+    </div>
+    <div class="finding">
+      <div class="finding-num">FINDING 02</div>
+      <h3>Localised burn — pre-existing asymmetry</h3>
+      <p>O padrão de queima concentrado (10h–2h) sugere que havia um ponto de lowest dielectric strength antes da falha — seja por umidade localizada, vibração crônica, ou defeito de fabricação no isolamento.</p>
+    </div>
+  </div>
+
+  <div class="result-banner warn" style="margin-top:1.5rem;">
+    <span class="banner-icon">⚠</span>
+    <span>Correcting only the sensor position is insufficient. The controller's failure to activate protection must be investigated separately before returning vehicles with this configuration to operation.</span>
+  </div>
+</section>
+
+<footer style="padding: 1.5rem 3rem; border-top: 1px solid var(--border);">
+  <p style="font-size: 12px; color: var(--muted); margin: 0;">
+    Simplified RC thermal model — steady state. Accuracy limited by uncertainty in η and Rth. 
+    For validation, replace Rth with the manufacturer datasheet value or a direct thermocouple measurement at the windings.
+    &nbsp;·&nbsp; Vammo Reliability Engineering &nbsp;·&nbsp; 2026
+  </p>
+</footer>
+
+<script>
+  const timeLabels = ['15:12','15:17','15:22','15:27','15:32','15:37','15:42','15:47','15:52','15:57','16:02','16:12','16:22','16:32','16:42','16:52','17:02','17:12','17:22','17:32','17:42','17:52','18:02'];
+  const sensorData = [30, 75, 118, 125, 112, 107, 97, 92, 88, 90, 95, 105, 110, 108, 122, 118, 112, 107, 112, 120, 118, 112, 88];
+  const P_PEAK = 6200;
+
+  let myChart = null;
+
+  function calc() {
+    const eta = parseFloat(document.getElementById('eta').value) / 100;
+    const rth = parseFloat(document.getElementById('rth').value);
+    const pwr = parseFloat(document.getElementById('pwr').value);
+    const tsens = parseFloat(document.getElementById('tsens').value);
+
+    const pLoss = Math.round(pwr * (1 - eta));
+    const delta = parseFloat((pLoss * rth).toFixed(1));
+    const tBob = parseFloat((tsens + delta).toFixed(1));
+    const pLossPeak = Math.round(P_PEAK * (1 - eta));
+    const deltaPeak = parseFloat((pLossPeak * rth).toFixed(1));
+    const tPeak = parseFloat((tsens + deltaPeak).toFixed(1));
+
+    document.getElementById('r-ploss').textContent = pLoss;
+    document.getElementById('r-delta').textContent = delta;
+    document.getElementById('r-tbob').textContent = tBob;
+    document.getElementById('r-tpeak').textContent = tPeak;
+
+    const v = document.getElementById('verdict');
+    const vt = document.getElementById('verdict-text');
+
+    if (tBob > 160) {
+      v.className = 'result-banner danger';
+      vt.textContent = 'CRITICAL — Estimated winding temperature (' + tBob + '°C) well above the insulation varnish destruction threshold. ΔT of ' + delta + '°C confirms the protection could never have acted in time.';
+    } else if (tBob > 130) {
+      v.className = 'result-banner warn';
+      vt.textContent = 'WARNING — Estimated winding temperature (' + tBob + '°C) exceeds the 130°C limit while the sensor was only reading ' + tsens + '°C. ΔT of ' + delta + '°C is sufficient to explain the failure.';
+    } else if (tBob > 115) {
+      v.className = 'result-banner info';
+      vt.textContent = 'Estimated T_winding at ' + tBob + '°C with ΔT = ' + delta + '°C. Close to the threshold — increase Rth to more realistic values for a sensor in peripheral resin.';
+    } else {
+      v.className = 'result-banner ok';
+      vt.textContent = 'With these parameters, ΔT = ' + delta + '°C results in T_winding = ' + tBob + '°C. Adjust Rth to the real value for sensor positioning (0.015–0.040 °C/W for sensor in resin).';
+    }
+
+    const adjustedSensor = sensorData.map(t => parseFloat((t * (tsens / 125)).toFixed(1)));
+    const bobData = adjustedSensor.map(t => parseFloat((t + delta).toFixed(1)));
+
+    if (myChart) {
+      myChart.data.datasets[0].data = adjustedSensor;
+      myChart.data.datasets[1].data = bobData;
+      myChart.update('none');
+    } else {
+      myChart = new Chart(document.getElementById('chart'), {
+        type: 'line',
+        data: {
+          labels: timeLabels,
+          datasets: [
+            {
+              label: 'Sensor T (read)',
+              data: adjustedSensor,
+              borderColor: '#9b7fe8',
+              borderWidth: 2,
+              pointRadius: 2,
+              tension: 0.35,
+              fill: false,
+              borderDash: [6, 3]
+            },
+            {
+              label: 'Winding T (estimated)',
+              data: bobData,
+              borderColor: '#e8593a',
+              backgroundColor: 'rgba(232,89,58,0.06)',
+              borderWidth: 2.5,
+              pointRadius: 2,
+              tension: 0.35,
+              fill: true
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            annotation: {}
+          },
+          scales: {
+            y: {
+              min: 20,
+              max: 220,
+              ticks: {
+                callback: v => v + '°C',
+                font: { size: 11, family: 'IBM Plex Mono' },
+                color: '#7a8290'
+              },
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              border: { color: 'rgba(255,255,255,0.1)' }
+            },
+            x: {
+              ticks: {
+                font: { size: 10, family: 'IBM Plex Mono' },
+                maxRotation: 45,
+                autoSkip: true,
+                maxTicksLimit: 12,
+                color: '#7a8290'
+              },
+              grid: { color: 'rgba(255,255,255,0.04)' },
+              border: { color: 'rgba(255,255,255,0.1)' }
+            }
+          }
+        }
+      });
+
+      // Draw threshold line via plugin
+      const thresholdPlugin = {
+        id: 'threshold',
+        afterDraw(chart) {
+          const {ctx, chartArea, scales} = chart;
+          const y = scales.y.getPixelForValue(130);
+          ctx.save();
+          ctx.beginPath();
+          ctx.setLineDash([8, 4]);
+          ctx.strokeStyle = 'rgba(245,200,66,0.45)';
+          ctx.lineWidth = 1.5;
+          ctx.moveTo(chartArea.left, y);
+          ctx.lineTo(chartArea.right, y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.font = '10px IBM Plex Mono';
+          ctx.fillStyle = 'rgba(245,200,66,0.6)';
+          ctx.fillText('130°C — threshold', chartArea.left + 6, y - 5);
+          ctx.restore();
+        }
+      };
+      Chart.register(thresholdPlugin);
+      myChart.update();
+    }
+  }
+
+  ['eta','rth','pwr','tsens'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const v = parseFloat(document.getElementById(id).value);
+      if (id === 'eta') document.getElementById('eta-out').textContent = Math.round(v) + '%';
+      if (id === 'rth') document.getElementById('rth-out').textContent = v.toFixed(3);
+      if (id === 'pwr') document.getElementById('pwr-out').textContent = Math.round(v) + ' W';
+      if (id === 'tsens') document.getElementById('tsens-out').textContent = Math.round(v) + ' °C';
+      calc();
+    });
+  });
+
+  calc();
+</script>
+</body>
+</html>
