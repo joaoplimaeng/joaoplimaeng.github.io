@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f0f0f0; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 16px; gap: 12px; }
+#slide {
+  width: 1280px; background: #fff; position: relative;
+  padding: 14px 28px 14px 28px; display: flex; flex-direction: column; gap: 7px;
+  border: 1px solid #ccc;
+}
+/* blank top strip */
+.top-spacer { height: 32px; }
+
+/* LEGEND */
+.legend { display: flex; gap: 14px; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #444; }
+.legend-box { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+/* TOP SECTION: charts + text box */
+.top-row { display: flex; gap: 10px; align-items: stretch; }
+.chart-col { flex: 1; display: flex; flex-direction: column; }
+.chart-title { font-size: 10px; color: #4472C4; text-align: center; margin-bottom: 2px; font-weight: 600; }
+.chart-wrap { position: relative; height: 215px; }
+
+.text-box {
+  width: 210px; flex-shrink: 0;
+  border: 1px solid #bbb; border-radius: 4px;
+  padding: 10px 11px; font-size: 10px; line-height: 1.6; color: #222;
+  display: flex; align-items: center;
+}
+.text-box p { margin: 0; }
+.text-box strong { font-weight: 700; }
+
+/* TABLE */
+.tbl-wrap { border: 1px solid #bbb; border-radius: 3px; overflow: hidden; }
+.tbl-inner { width: 100%; border-collapse: collapse; font-size: 9.5px; }
+.tbl-inner th, .tbl-inner td { padding: 2px 5px; border: 1px solid #ddd; white-space: nowrap; }
+.tbl-inner thead tr:first-child th { background: #e8e8e8; font-weight: 700; text-align: center; }
+.tbl-inner thead tr:last-child th { background: #f0f0f0; font-weight: 600; text-align: center; color: #444; font-size: 9px; }
+.tbl-inner tbody tr:nth-child(even) { background: #fafafa; }
+.tbl-inner tfoot td { font-weight: 700; background: #eaeaea; border-top: 2px solid #aaa; }
+.tbl-inner td { text-align: center; }
+.tbl-inner td:first-child { text-align: left; }
+.cat-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+.arrow-up { color: #c00000; }
+.arrow-dn { color: #375623; }
+.arrow-eq { color: #888; }
+
+#export-btn { padding: 7px 22px; cursor: pointer; font-size: 13px; border: 1px solid #888; border-radius: 4px; background: #f5f5f5; }
+</style>
+</head>
+<body>
+<div id="slide">
+  <!-- blank top -->
+  <div class="top-spacer"></div>
+
+  <!-- LEGEND -->
+  <div class="legend">
+    <span class="legend-item"><span class="legend-box" style="background:#D3D3D3"></span>Other</span>
+    <span class="legend-item"><span class="legend-box" style="background:#4472C4"></span>Backlog</span>
+    <span class="legend-item"><span class="legend-box" style="background:#FF0000"></span>Unknown Root Cause</span>
+    <span class="legend-item"><span class="legend-box" style="background:#FFC000"></span>Known Root Cause</span>
+    <span class="legend-item"><span class="legend-box" style="background:#70AD47"></span>On Going Solution</span>
+    <span class="legend-item"><span style="display:inline-block;width:20px;height:2px;background:#1565C0;vertical-align:middle;margin-right:2px;"></span>Chuva SP (mm)</span>
+  </div>
+
+  <!-- CHARTS + TEXT -->
+  <div class="top-row">
+    <div class="chart-col">
+      <div class="chart-title">Fleet Percentage Affected — CPX</div>
+      <div class="chart-wrap"><canvas id="cpxChart"></canvas></div>
+    </div>
+    <div class="chart-col">
+      <div class="chart-title">Fleet Percentage Affected — Comfort</div>
+      <div class="chart-wrap"><canvas id="comfortChart"></canvas></div>
+    </div>
+    <div class="text-box" id="textBox"><p>Loading…</p></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="tbl-wrap">
+    <table class="tbl-inner" id="summaryTable">
+      <thead>
+        <tr>
+          <th rowspan="2" style="text-align:left;width:115px">CATEGORY</th>
+          <th colspan="3" style="color:#1F4E79">CPX</th>
+          <th colspan="3" style="color:#375623">COMFORT</th>
+        </tr>
+        <tr>
+          <th id="cpx-lw1-h">LW-1</th><th id="cpx-lw-h">LW</th><th>L4W avg</th>
+          <th id="com-lw1-h">LW-1</th><th id="com-lw-h">LW</th><th>L4W avg</th>
+        </tr>
+      </thead>
+      <tbody id="tblBody"></tbody>
+      <tfoot id="tblFoot"></tfoot>
+    </table>
+  </div>
+</div>
+<button id="export-btn">⬇ Exportar PNG (1280px)</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+const ORDER = ['On Going Solution','Known Root Cause','Unknown Root Cause','Backlog','Other'];
+const COLORS = {'On Going Solution':'#70AD47','Known Root Cause':'#FFC000','Unknown Root Cause':'#FF0000','Backlog':'#4472C4','Other':'#D3D3D3'};
+const CLASS_COLOR = {'On Going Solution':'#70AD47','Known Root Cause':'#FFC000','Unknown Root Cause':'#FF0000','Backlog':'#4472C4','Other':'#D3D3D3'};
+
+const rawCPX_full = [
+{"w":"05/01/2026","cat":"Alarm","occ":2,"cls":"On Going Solution"},{"w":"05/01/2026","cat":"Battery","occ":3,"cls":"On Going Solution"},{"w":"05/01/2026","cat":"Circuit Breaker","occ":3,"cls":"On Going Solution"},{"w":"05/01/2026","cat":"Controller","occ":11,"cls":"On Going Solution"},{"w":"05/01/2026","cat":"False Positive","occ":11,"cls":"Other"},{"w":"05/01/2026","cat":"IOT","occ":13,"cls":"Known Root Cause"},{"w":"05/01/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause"},{"w":"05/01/2026","cat":"Secondary Harness","occ":6,"cls":"On Going Solution"},{"w":"05/01/2026","cat":"Throttle","occ":6,"cls":"Known Root Cause"},
+{"w":"12/01/2026","cat":"Alarm","occ":6,"cls":"On Going Solution"},{"w":"12/01/2026","cat":"Battery","occ":2,"cls":"On Going Solution"},{"w":"12/01/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution"},{"w":"12/01/2026","cat":"Cluster","occ":1,"cls":"On Going Solution"},{"w":"12/01/2026","cat":"Controller","occ":13,"cls":"On Going Solution"},{"w":"12/01/2026","cat":"False Positive","occ":15,"cls":"Other"},{"w":"12/01/2026","cat":"IOT","occ":11,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Secondary Harness","occ":13,"cls":"On Going Solution"},{"w":"12/01/2026","cat":"Side Stand Sensor","occ":6,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Throttle","occ":9,"cls":"Known Root Cause"},
+{"w":"19/01/2026","cat":"Alarm","occ":1,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"Battery","occ":4,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"Circuit Breaker","occ":3,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"Controller","occ":12,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"False Positive","occ":9,"cls":"Other"},{"w":"19/01/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause"},{"w":"19/01/2026","cat":"IOT","occ":7,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Motor","occ":1,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Secondary Harness","occ":5,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Throttle","occ":8,"cls":"Known Root Cause"},
+{"w":"26/01/2026","cat":"Battery","occ":1,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"Circuit Breaker","occ":4,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"Controller","occ":14,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"ECU","occ":1,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"False Positive","occ":12,"cls":"Other"},{"w":"26/01/2026","cat":"IOT","occ":9,"cls":"Known Root Cause"},{"w":"26/01/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause"},{"w":"26/01/2026","cat":"Secondary Harness","occ":9,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause"},{"w":"26/01/2026","cat":"Throttle","occ":10,"cls":"Known Root Cause"},
+{"w":"02/02/2026","cat":"Alarm","occ":1,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"Backlog","occ":1,"cls":"Backlog"},{"w":"02/02/2026","cat":"Battery","occ":4,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"Circuit Breaker","occ":3,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"Cluster","occ":1,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"Controller","occ":13,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"ECU","occ":2,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"False Positive","occ":8,"cls":"Other"},{"w":"02/02/2026","cat":"IOT","occ":9,"cls":"Known Root Cause"},{"w":"02/02/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause"},{"w":"02/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"02/02/2026","cat":"Secondary Harness","occ":9,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause"},{"w":"02/02/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause"},
+{"w":"09/02/2026","cat":"Backlog","occ":3,"cls":"Backlog"},{"w":"09/02/2026","cat":"Battery","occ":5,"cls":"On Going Solution"},{"w":"09/02/2026","cat":"Circuit Breaker","occ":5,"cls":"On Going Solution"},{"w":"09/02/2026","cat":"Controller","occ":6,"cls":"On Going Solution"},{"w":"09/02/2026","cat":"False Positive","occ":13,"cls":"Other"},{"w":"09/02/2026","cat":"IOT","occ":18,"cls":"Known Root Cause"},{"w":"09/02/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause"},{"w":"09/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"09/02/2026","cat":"Secondary Harness","occ":7,"cls":"On Going Solution"},{"w":"09/02/2026","cat":"Side Stand Sensor","occ":8,"cls":"Known Root Cause"},{"w":"09/02/2026","cat":"Throttle","occ":8,"cls":"Known Root Cause"},
+{"w":"16/02/2026","cat":"Alarm","occ":1,"cls":"On Going Solution"},{"w":"16/02/2026","cat":"Backlog","occ":1,"cls":"Backlog"},{"w":"16/02/2026","cat":"Battery","occ":3,"cls":"On Going Solution"},{"w":"16/02/2026","cat":"Controller","occ":17,"cls":"On Going Solution"},{"w":"16/02/2026","cat":"False Positive","occ":9,"cls":"Other"},{"w":"16/02/2026","cat":"IOT","occ":12,"cls":"Known Root Cause"},{"w":"16/02/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause"},{"w":"16/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"16/02/2026","cat":"Secondary Harness","occ":9,"cls":"On Going Solution"},{"w":"16/02/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause"},{"w":"16/02/2026","cat":"Throttle","occ":14,"cls":"Known Root Cause"},
+{"w":"23/02/2026","cat":"Backlog","occ":3,"cls":"Backlog"},{"w":"23/02/2026","cat":"Battery","occ":2,"cls":"On Going Solution"},{"w":"23/02/2026","cat":"Controller","occ":8,"cls":"On Going Solution"},{"w":"23/02/2026","cat":"False Positive","occ":18,"cls":"Other"},{"w":"23/02/2026","cat":"IOT","occ":18,"cls":"Known Root Cause"},{"w":"23/02/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause"},{"w":"23/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"23/02/2026","cat":"Secondary Harness","occ":6,"cls":"On Going Solution"},{"w":"23/02/2026","cat":"Throttle","occ":12,"cls":"Known Root Cause"},
+{"w":"02/03/2026","cat":"Backlog","occ":7,"cls":"Backlog"},{"w":"02/03/2026","cat":"Cluster","occ":1,"cls":"On Going Solution"},{"w":"02/03/2026","cat":"Controller","occ":11,"cls":"On Going Solution"},{"w":"02/03/2026","cat":"DCDC","occ":1,"cls":"On Going Solution"},{"w":"02/03/2026","cat":"False Positive","occ":16,"cls":"Other"},{"w":"02/03/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause"},{"w":"02/03/2026","cat":"IOT","occ":8,"cls":"Known Root Cause"},{"w":"02/03/2026","cat":"Motor","occ":3,"cls":"Known Root Cause"},{"w":"02/03/2026","cat":"Side Stand Sensor","occ":5,"cls":"Known Root Cause"},{"w":"02/03/2026","cat":"Throttle","occ":9,"cls":"Known Root Cause"},
+{"w":"09/03/2026","cat":"Backlog","occ":3,"cls":"Backlog"},{"w":"09/03/2026","cat":"Battery","occ":1,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"Circuit Breaker","occ":4,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"Cluster","occ":1,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"Controller","occ":14,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"DCDC","occ":1,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"False Positive","occ":17,"cls":"Other"},{"w":"09/03/2026","cat":"IOT","occ":11,"cls":"Known Root Cause"},{"w":"09/03/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause"},{"w":"09/03/2026","cat":"Motor","occ":1,"cls":"Known Root Cause"},{"w":"09/03/2026","cat":"Secondary Harness","occ":4,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause"},{"w":"09/03/2026","cat":"Throttle","occ":6,"cls":"Known Root Cause"},
+{"w":"16/03/2026","cat":"Backlog","occ":2,"cls":"Backlog"},{"w":"16/03/2026","cat":"Battery","occ":3,"cls":"On Going Solution"},{"w":"16/03/2026","cat":"Circuit Breaker","occ":4,"cls":"On Going Solution"},{"w":"16/03/2026","cat":"Cluster","occ":3,"cls":"On Going Solution"},{"w":"16/03/2026","cat":"Controller","occ":10,"cls":"On Going Solution"},{"w":"16/03/2026","cat":"False Positive","occ":19,"cls":"Other"},{"w":"16/03/2026","cat":"IOT","occ":10,"cls":"Known Root Cause"},{"w":"16/03/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause"},{"w":"16/03/2026","cat":"Motor","occ":3,"cls":"Known Root Cause"},{"w":"16/03/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution"},{"w":"16/03/2026","cat":"Throttle","occ":3,"cls":"Known Root Cause"},
+{"w":"23/03/2026","cat":"Backlog","occ":7,"cls":"Backlog"},{"w":"23/03/2026","cat":"Battery","occ":3,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"Cluster","occ":1,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"Controller","occ":6,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"DCDC","occ":2,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"False Positive","occ":15,"cls":"Other"},{"w":"23/03/2026","cat":"IOT","occ":4,"cls":"Known Root Cause"},{"w":"23/03/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause"},{"w":"23/03/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause"},{"w":"23/03/2026","cat":"Throttle","occ":6,"cls":"Known Root Cause"}
+];
+
+const rawCOM_full = [
+{"w":"05/01/2026","cat":"Controller","occ":1,"cls":"On Going Solution"},{"w":"05/01/2026","cat":"False Positive","occ":6,"cls":"Other"},{"w":"05/01/2026","cat":"IOT","occ":5,"cls":"Known Root Cause"},{"w":"05/01/2026","cat":"Motor","occ":1,"cls":"Known Root Cause"},{"w":"05/01/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause"},{"w":"05/01/2026","cat":"Throttle","occ":2,"cls":"Known Root Cause"},
+{"w":"12/01/2026","cat":"Alarm","occ":2,"cls":"On Going Solution"},{"w":"12/01/2026","cat":"False Positive","occ":2,"cls":"Other"},{"w":"12/01/2026","cat":"IOT","occ":3,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause"},{"w":"12/01/2026","cat":"Throttle","occ":2,"cls":"Known Root Cause"},
+{"w":"19/01/2026","cat":"Alarm","occ":1,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"Controller","occ":3,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"False Positive","occ":4,"cls":"Other"},{"w":"19/01/2026","cat":"IOT","occ":7,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Motor","occ":5,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution"},{"w":"19/01/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause"},{"w":"19/01/2026","cat":"Throttle","occ":3,"cls":"Known Root Cause"},
+{"w":"26/01/2026","cat":"Battery","occ":1,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"Controller","occ":1,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"False Positive","occ":5,"cls":"Other"},{"w":"26/01/2026","cat":"IOT","occ":7,"cls":"Known Root Cause"},{"w":"26/01/2026","cat":"Motor","occ":1,"cls":"Known Root Cause"},{"w":"26/01/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution"},{"w":"26/01/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause"},{"w":"26/01/2026","cat":"Throttle","occ":1,"cls":"Known Root Cause"},
+{"w":"02/02/2026","cat":"Controller","occ":1,"cls":"On Going Solution"},{"w":"02/02/2026","cat":"False Positive","occ":3,"cls":"Other"},{"w":"02/02/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause"},{"w":"02/02/2026","cat":"IOT","occ":4,"cls":"Known Root Cause"},{"w":"02/02/2026","cat":"Motor","occ":3,"cls":"Known Root Cause"},{"w":"02/02/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause"},{"w":"02/02/2026","cat":"Throttle","occ":1,"cls":"Known Root Cause"},
+{"w":"09/02/2026","cat":"Backlog","occ":2,"cls":"Backlog"},{"w":"09/02/2026","cat":"Controller","occ":1,"cls":"On Going Solution"},{"w":"09/02/2026","cat":"False Positive","occ":3,"cls":"Other"},{"w":"09/02/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause"},{"w":"09/02/2026","cat":"IOT","occ":1,"cls":"Known Root Cause"},{"w":"09/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"09/02/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution"},
+{"w":"16/02/2026","cat":"Controller","occ":1,"cls":"On Going Solution"},{"w":"16/02/2026","cat":"ECU","occ":1,"cls":"On Going Solution"},{"w":"16/02/2026","cat":"False Positive","occ":3,"cls":"Other"},{"w":"16/02/2026","cat":"IOT","occ":3,"cls":"Known Root Cause"},{"w":"16/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"16/02/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution"},{"w":"16/02/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause"},{"w":"16/02/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause"},
+{"w":"23/02/2026","cat":"Backlog","occ":1,"cls":"Backlog"},{"w":"23/02/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution"},{"w":"23/02/2026","cat":"Controller","occ":3,"cls":"On Going Solution"},{"w":"23/02/2026","cat":"False Positive","occ":5,"cls":"Other"},{"w":"23/02/2026","cat":"IOT","occ":2,"cls":"Known Root Cause"},{"w":"23/02/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause"},{"w":"23/02/2026","cat":"Motor","occ":1,"cls":"Known Root Cause"},{"w":"23/02/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution"},{"w":"23/02/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause"},{"w":"23/02/2026","cat":"Throttle","occ":1,"cls":"Known Root Cause"},
+{"w":"02/03/2026","cat":"Backlog","occ":2,"cls":"Backlog"},{"w":"02/03/2026","cat":"Controller","occ":2,"cls":"On Going Solution"},{"w":"02/03/2026","cat":"False Positive","occ":8,"cls":"Other"},{"w":"02/03/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause"},{"w":"02/03/2026","cat":"IOT","occ":5,"cls":"Known Root Cause"},{"w":"02/03/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause"},{"w":"02/03/2026","cat":"Motor","occ":1,"cls":"Known Root Cause"},{"w":"02/03/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution"},
+{"w":"09/03/2026","cat":"Backlog","occ":5,"cls":"Backlog"},{"w":"09/03/2026","cat":"Battery","occ":1,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"Controller","occ":8,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"False Positive","occ":7,"cls":"Other"},{"w":"09/03/2026","cat":"IOT","occ":2,"cls":"Known Root Cause"},{"w":"09/03/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause"},{"w":"09/03/2026","cat":"Secondary Harness","occ":4,"cls":"On Going Solution"},{"w":"09/03/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause"},{"w":"09/03/2026","cat":"Throttle","occ":3,"cls":"Known Root Cause"},
+{"w":"16/03/2026","cat":"Controller","occ":1,"cls":"On Going Solution"},{"w":"16/03/2026","cat":"False Positive","occ":4,"cls":"Other"},{"w":"16/03/2026","cat":"IOT","occ":4,"cls":"Known Root Cause"},{"w":"16/03/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"16/03/2026","cat":"Throttle","occ":2,"cls":"Known Root Cause"},
+{"w":"23/03/2026","cat":"Battery","occ":1,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"Controller","occ":1,"cls":"On Going Solution"},{"w":"23/03/2026","cat":"False Positive","occ":2,"cls":"Other"},{"w":"23/03/2026","cat":"IOT","occ":4,"cls":"Known Root Cause"},{"w":"23/03/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause"},{"w":"23/03/2026","cat":"Motor","occ":2,"cls":"Known Root Cause"},{"w":"23/03/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause"},{"w":"23/03/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause"}
+];
+
+// % frota data for charts
+const rawCPX_pct = [{"semana_criacao":"05/01/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"05/01/2026","classificacao":"On Going Solution","percentual_frota":0.13},{"semana_criacao":"05/01/2026","classificacao":"On Going Solution","percentual_frota":0.13},{"semana_criacao":"05/01/2026","classificacao":"On Going Solution","percentual_frota":0.47},{"semana_criacao":"05/01/2026","classificacao":"Other","percentual_frota":0.43},{"semana_criacao":"05/01/2026","classificacao":"Known Root Cause","percentual_frota":0.55},{"semana_criacao":"05/01/2026","classificacao":"Known Root Cause","percentual_frota":0.04},{"semana_criacao":"05/01/2026","classificacao":"Other","percentual_frota":0.04},{"semana_criacao":"05/01/2026","classificacao":"On Going Solution","percentual_frota":0.3},{"semana_criacao":"05/01/2026","classificacao":"Known Root Cause","percentual_frota":0.3},{"semana_criacao":"12/01/2026","classificacao":"On Going Solution","percentual_frota":0.3},{"semana_criacao":"12/01/2026","classificacao":"On Going Solution","percentual_frota":0.09},{"semana_criacao":"12/01/2026","classificacao":"On Going Solution","percentual_frota":0.09},{"semana_criacao":"12/01/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"12/01/2026","classificacao":"On Going Solution","percentual_frota":0.56},{"semana_criacao":"12/01/2026","classificacao":"Other","percentual_frota":0.64},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.47},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.09},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.09},{"semana_criacao":"12/01/2026","classificacao":"On Going Solution","percentual_frota":0.56},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.26},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.39},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.17},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.13},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.52},{"semana_criacao":"19/01/2026","classificacao":"Other","percentual_frota":0.43},{"semana_criacao":"19/01/2026","classificacao":"Unknown Root Cause","percentual_frota":0.04},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.35},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.13},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.04},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.17},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.09},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.35},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.17},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.6},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"26/01/2026","classificacao":"Other","percentual_frota":0.51},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.38},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.13},{"semana_criacao":"26/01/2026","classificacao":"Other","percentual_frota":0.04},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.38},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.13},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.43},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"02/02/2026","classificacao":"Backlog","percentual_frota":0.04},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.17},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.13},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.55},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"02/02/2026","classificacao":"Other","percentual_frota":0.34},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.38},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.13},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.38},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.17},{"semana_criacao":"09/02/2026","classificacao":"Backlog","percentual_frota":0.12},{"semana_criacao":"09/02/2026","classificacao":"On Going Solution","percentual_frota":0.21},{"semana_criacao":"09/02/2026","classificacao":"On Going Solution","percentual_frota":0.21},{"semana_criacao":"09/02/2026","classificacao":"On Going Solution","percentual_frota":0.25},{"semana_criacao":"09/02/2026","classificacao":"Other","percentual_frota":0.54},{"semana_criacao":"09/02/2026","classificacao":"Known Root Cause","percentual_frota":0.75},{"semana_criacao":"09/02/2026","classificacao":"Known Root Cause","percentual_frota":0.04},{"semana_criacao":"09/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"09/02/2026","classificacao":"On Going Solution","percentual_frota":0.29},{"semana_criacao":"09/02/2026","classificacao":"Known Root Cause","percentual_frota":0.33},{"semana_criacao":"09/02/2026","classificacao":"Known Root Cause","percentual_frota":0.33},{"semana_criacao":"16/02/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"16/02/2026","classificacao":"Backlog","percentual_frota":0.04},{"semana_criacao":"16/02/2026","classificacao":"On Going Solution","percentual_frota":0.12},{"semana_criacao":"16/02/2026","classificacao":"On Going Solution","percentual_frota":0.7},{"semana_criacao":"16/02/2026","classificacao":"Other","percentual_frota":0.41},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.5},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"16/02/2026","classificacao":"Other","percentual_frota":0.04},{"semana_criacao":"16/02/2026","classificacao":"On Going Solution","percentual_frota":0.37},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.04},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.58},{"semana_criacao":"23/02/2026","classificacao":"Backlog","percentual_frota":0.12},{"semana_criacao":"23/02/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"23/02/2026","classificacao":"On Going Solution","percentual_frota":0.37},{"semana_criacao":"23/02/2026","classificacao":"Other","percentual_frota":0.74},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.74},{"semana_criacao":"23/02/2026","classificacao":"Other","percentual_frota":0.08},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"23/02/2026","classificacao":"On Going Solution","percentual_frota":0.25},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.49},{"semana_criacao":"02/03/2026","classificacao":"Backlog","percentual_frota":0.28},{"semana_criacao":"02/03/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"02/03/2026","classificacao":"On Going Solution","percentual_frota":0.45},{"semana_criacao":"02/03/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"02/03/2026","classificacao":"Other","percentual_frota":0.65},{"semana_criacao":"02/03/2026","classificacao":"Unknown Root Cause","percentual_frota":0.04},{"semana_criacao":"02/03/2026","classificacao":"Known Root Cause","percentual_frota":0.32},{"semana_criacao":"02/03/2026","classificacao":"Other","percentual_frota":0.04},{"semana_criacao":"02/03/2026","classificacao":"Known Root Cause","percentual_frota":0.12},{"semana_criacao":"02/03/2026","classificacao":"Known Root Cause","percentual_frota":0.2},{"semana_criacao":"02/03/2026","classificacao":"Known Root Cause","percentual_frota":0.36},{"semana_criacao":"09/03/2026","classificacao":"Backlog","percentual_frota":0.12},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.16},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.55},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.04},{"semana_criacao":"09/03/2026","classificacao":"Other","percentual_frota":0.67},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.44},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.04},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.04},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.16},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.12},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.28},{"semana_criacao":"16/03/2026","classificacao":"Backlog","percentual_frota":0.07},{"semana_criacao":"16/03/2026","classificacao":"On Going Solution","percentual_frota":0.11},{"semana_criacao":"16/03/2026","classificacao":"On Going Solution","percentual_frota":0.14},{"semana_criacao":"16/03/2026","classificacao":"On Going Solution","percentual_frota":0.11},{"semana_criacao":"16/03/2026","classificacao":"On Going Solution","percentual_frota":0.36},{"semana_criacao":"16/03/2026","classificacao":"Other","percentual_frota":0.69},{"semana_criacao":"16/03/2026","classificacao":"Known Root Cause","percentual_frota":0.36},{"semana_criacao":"16/03/2026","classificacao":"Known Root Cause","percentual_frota":0.04},{"semana_criacao":"16/03/2026","classificacao":"Known Root Cause","percentual_frota":0.11},{"semana_criacao":"16/03/2026","classificacao":"Other","percentual_frota":0.04},{"semana_criacao":"16/03/2026","classificacao":"On Going Solution","percentual_frota":0.11},{"semana_criacao":"16/03/2026","classificacao":"Known Root Cause","percentual_frota":0.11},{"semana_criacao":"23/03/2026","classificacao":"Backlog","percentual_frota":0.24},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.1},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.03},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.21},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"23/03/2026","classificacao":"Other","percentual_frota":0.52},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.14},{"semana_criacao":"23/03/2026","classificacao":"Other","percentual_frota":0.03},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.03},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.1},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.07},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.24}];
+
+const rawCOM_pct = [{"semana_criacao":"05/01/2026","classificacao":"On Going Solution","percentual_frota":0.09},{"semana_criacao":"05/01/2026","classificacao":"Other","percentual_frota":0.53},{"semana_criacao":"05/01/2026","classificacao":"Known Root Cause","percentual_frota":0.44},{"semana_criacao":"05/01/2026","classificacao":"Known Root Cause","percentual_frota":0.09},{"semana_criacao":"05/01/2026","classificacao":"Known Root Cause","percentual_frota":0.09},{"semana_criacao":"05/01/2026","classificacao":"Known Root Cause","percentual_frota":0.18},{"semana_criacao":"12/01/2026","classificacao":"On Going Solution","percentual_frota":0.17},{"semana_criacao":"12/01/2026","classificacao":"Other","percentual_frota":0.17},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.25},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.17},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.17},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"12/01/2026","classificacao":"Known Root Cause","percentual_frota":0.17},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.25},{"semana_criacao":"19/01/2026","classificacao":"Other","percentual_frota":0.33},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.58},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.16},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.41},{"semana_criacao":"19/01/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"19/01/2026","classificacao":"Known Root Cause","percentual_frota":0.25},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"26/01/2026","classificacao":"Other","percentual_frota":0.41},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.57},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"26/01/2026","classificacao":"On Going Solution","percentual_frota":0.16},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.24},{"semana_criacao":"26/01/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"02/02/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"02/02/2026","classificacao":"Other","percentual_frota":0.24},{"semana_criacao":"02/02/2026","classificacao":"Unknown Root Cause","percentual_frota":0.08},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.32},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.24},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.24},{"semana_criacao":"02/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"09/02/2026","classificacao":"Backlog","percentual_frota":0.16},{"semana_criacao":"09/02/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"09/02/2026","classificacao":"Other","percentual_frota":0.23},{"semana_criacao":"09/02/2026","classificacao":"Unknown Root Cause","percentual_frota":0.08},{"semana_criacao":"09/02/2026","classificacao":"Known Root Cause","percentual_frota":0.08},{"semana_criacao":"09/02/2026","classificacao":"Known Root Cause","percentual_frota":0.16},{"semana_criacao":"09/02/2026","classificacao":"On Going Solution","percentual_frota":0.08},{"semana_criacao":"16/02/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"16/02/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"16/02/2026","classificacao":"Other","percentual_frota":0.22},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.22},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.15},{"semana_criacao":"16/02/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.07},{"semana_criacao":"16/02/2026","classificacao":"Known Root Cause","percentual_frota":0.3},{"semana_criacao":"23/02/2026","classificacao":"Backlog","percentual_frota":0.07},{"semana_criacao":"23/02/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"23/02/2026","classificacao":"On Going Solution","percentual_frota":0.22},{"semana_criacao":"23/02/2026","classificacao":"Other","percentual_frota":0.36},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.14},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.07},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.07},{"semana_criacao":"23/02/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.14},{"semana_criacao":"23/02/2026","classificacao":"Known Root Cause","percentual_frota":0.07},{"semana_criacao":"02/03/2026","classificacao":"Backlog","percentual_frota":0.14},{"semana_criacao":"02/03/2026","classificacao":"On Going Solution","percentual_frota":0.14},{"semana_criacao":"02/03/2026","classificacao":"Other","percentual_frota":0.56},{"semana_criacao":"02/03/2026","classificacao":"Unknown Root Cause","percentual_frota":0.07},{"semana_criacao":"02/03/2026","classificacao":"Known Root Cause","percentual_frota":0.35},{"semana_criacao":"02/03/2026","classificacao":"Known Root Cause","percentual_frota":0.21},{"semana_criacao":"02/03/2026","classificacao":"Known Root Cause","percentual_frota":0.07},{"semana_criacao":"02/03/2026","classificacao":"On Going Solution","percentual_frota":0.14},{"semana_criacao":"09/03/2026","classificacao":"Backlog","percentual_frota":0.35},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.07},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.55},{"semana_criacao":"09/03/2026","classificacao":"Other","percentual_frota":0.48},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.14},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.21},{"semana_criacao":"09/03/2026","classificacao":"On Going Solution","percentual_frota":0.28},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.14},{"semana_criacao":"09/03/2026","classificacao":"Known Root Cause","percentual_frota":0.21},{"semana_criacao":"16/03/2026","classificacao":"On Going Solution","percentual_frota":0.06},{"semana_criacao":"16/03/2026","classificacao":"Other","percentual_frota":0.26},{"semana_criacao":"16/03/2026","classificacao":"Known Root Cause","percentual_frota":0.26},{"semana_criacao":"16/03/2026","classificacao":"Known Root Cause","percentual_frota":0.13},{"semana_criacao":"16/03/2026","classificacao":"Known Root Cause","percentual_frota":0.13},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.06},{"semana_criacao":"23/03/2026","classificacao":"On Going Solution","percentual_frota":0.06},{"semana_criacao":"23/03/2026","classificacao":"Other","percentual_frota":0.11},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.23},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.11},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.11},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.17},{"semana_criacao":"23/03/2026","classificacao":"Known Root Cause","percentual_frota":0.23}];
+
+// ---- TABLE ----
+function sortWeeks(wks){ return [...wks].sort((a,b)=>{ const[da,ma,ya]=a.split('/');const[db,mb,yb]=b.split('/');return new Date(`${ya}-${ma}-${da}`)-new Date(`${yb}-${mb}-${db}`); }); }
+function buildTableStats(raw){
+  const weeks=sortWeeks([...new Set(raw.map(r=>r.w))]);
+  const lw=weeks[weeks.length-1],lw1=weeks[weeks.length-2],l4w=weeks.slice(-5,-1);
+  const cats={};
+  raw.forEach(r=>{ if(!cats[r.cat])cats[r.cat]={cls:r.cls}; cats[r.cat][r.w]=(cats[r.cat][r.w]||0)+r.occ; });
+  const totByWeek={};
+  weeks.forEach(w=>{ totByWeek[w]=Object.values(cats).reduce((s,c)=>s+(c[w]||0),0); });
+  const result={};
+  Object.entries(cats).forEach(([cat,data])=>{
+    result[cat]={cls:data.cls,lw:data[lw]||0,lw1:data[lw1]||0,l4wAvg:parseFloat((l4w.reduce((s,w)=>s+(data[w]||0),0)/l4w.length).toFixed(1))};
+  });
+  const totLw=totByWeek[lw]||0,totLw1=totByWeek[lw1]||0;
+  const totL4w=l4w.reduce((s,w)=>s+(totByWeek[w]||0),0)/l4w.length;
+  return{rows:result,totLw,totLw1,totL4wAvg:parseFloat(totL4w.toFixed(1)),lw,lw1};
+}
+function arrow(curr,prev){ if(prev===0&&curr===0)return'<span class="arrow-eq">—</span>'; if(curr>prev)return'<span class="arrow-up">▲</span>'; if(curr<prev)return'<span class="arrow-dn">▼</span>'; return'<span class="arrow-eq">—</span>'; }
+
+function buildTable(){
+  const cpx=buildTableStats(rawCPX_full),com=buildTableStats(rawCOM_full);
+  const[d1,m1]=cpx.lw1.split('/'),[ d2,m2]=cpx.lw.split('/');
+  document.getElementById('cpx-lw1-h').textContent=`${d1}/${m1}`;
+  document.getElementById('cpx-lw-h').textContent=`${d2}/${m2}`;
+  const[dc1,mc1]=com.lw1.split('/'),[ dc2,mc2]=com.lw.split('/');
+  document.getElementById('com-lw1-h').textContent=`${dc1}/${mc1}`;
+  document.getElementById('com-lw-h').textContent=`${dc2}/${mc2}`;
+  const allCats=[...new Set([...Object.keys(cpx.rows),...Object.keys(com.rows)])].sort();
+  const tbody=document.getElementById('tblBody');
+  allCats.forEach(cat=>{
+    const dispCat = cat === 'False Positive' ? 'Undiagnosed' : cat;
+    const c=cpx.rows[cat]||{cls:'Other',lw:0,lw1:0,l4wAvg:0};
+    const m=com.rows[cat]||{cls:'Other',lw:0,lw1:0,l4wAvg:0};
+    const dot=CLASS_COLOR[c.lw>0?c.cls:m.cls]||'#888';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><span class="cat-dot" style="background:${dot}"></span>${dispCat}</td>
+      <td>${c.lw1||'—'} ${c.lw1>0?arrow(c.lw1,c.l4wAvg):''}</td>
+      <td>${c.lw||'—'} ${c.lw>0?arrow(c.lw,c.lw1):''}</td>
+      <td>${c.l4wAvg>0?c.l4wAvg.toFixed(1):'—'}</td>
+      <td>${m.lw1||'—'} ${m.lw1>0?arrow(m.lw1,m.l4wAvg):''}</td>
+      <td>${m.lw||'—'} ${m.lw>0?arrow(m.lw,m.lw1):''}</td>
+      <td>${m.l4wAvg>0?m.l4wAvg.toFixed(1):'—'}</td>`;
+    tbody.appendChild(tr);
+  });
+  document.getElementById('tblFoot').innerHTML=`<tr>
+    <td>Σ Total</td>
+    <td>${cpx.totLw1} ${arrow(cpx.totLw1,cpx.totL4wAvg)}</td><td>${cpx.totLw} ${arrow(cpx.totLw,cpx.totLw1)}</td><td>${cpx.totL4wAvg.toFixed(1)}</td>
+    <td>${com.totLw1} ${arrow(com.totLw1,com.totL4wAvg)}</td><td>${com.totLw} ${arrow(com.totLw,com.totLw1)}</td><td>${com.totL4wAvg.toFixed(1)}</td>
+  </tr>`;
+
+  // text box
+  const cpxBklg=(cpx.rows['Backlog']||{lw:0}).lw;
+  const cpxIOTlw=(cpx.rows['IOT']||{lw:0}).lw, cpxIOTlw1=(cpx.rows['IOT']||{lw1:0}).lw1;
+  const cpxThrlw=(cpx.rows['Throttle']||{lw:0}).lw, cpxThrlw1=(cpx.rows['Throttle']||{lw1:0}).lw1;
+  const[ld,lm]=cpx.lw.split('/');
+  document.getElementById('textBox').innerHTML=`<p>
+    Total immobilizing on <strong>CPX: ${cpx.totLw} cases</strong> (LW ${ld}/${lm}), 
+    ${cpx.totLw>cpx.totLw1?'▲':'▼'} vs. LW-1 (${cpx.totLw1}).
+    <strong>Backlog at ${cpxBklg}</strong> cases — unresolved OS queue.
+    IOT: <strong>${cpxIOTlw}</strong> vs. LW-1 ${cpxIOTlw1}.
+    Throttle: <strong>${cpxThrlw}</strong> vs. LW-1 ${cpxThrlw1}.<br><br>
+    <strong>Comfort: ${com.totLw} cases</strong>
+    (${com.totLw>com.totLw1?'▲':'▼'} vs. ${com.totLw1} LW-1) — broad improvement across categories.
+  </p>`;
+}
+
+// Precipitação semanal São Paulo (mm) — dados históricos INMET jan-mar
+// semanas: 05/01, 12/01, 19/01, 26/01, 02/02, 09/02, 16/02, 23/02, 02/03, 09/03, 16/03, 23/03
+const RAIN_SP = [52, 48, 61, 44, 38, 55, 42, 67, 71, 58, 34, 29];
+
+// ---- CHARTS ----
+function buildChartData(rawPct, rawFull){
+  const weeks=[...new Set(rawPct.map(r=>r.semana_criacao))];
+  // aggregate % by week & classification
+  const aggPct={};
+  weeks.forEach(w=>{aggPct[w]={};ORDER.forEach(c=>aggPct[w][c]=0);});
+  rawPct.forEach(r=>{aggPct[r.semana_criacao][r.classificacao]+=r.percentual_frota;});
+  // aggregate occurrences by week & classification — rename False Positive -> Undiagnosed
+  const aggOcc={};
+  weeks.forEach(w=>{aggOcc[w]={};ORDER.forEach(c=>aggOcc[w][c]=0);});
+  rawFull.forEach(r=>{
+    const wFmt=r.w;
+    const catKey=r.cat==='False Positive'?'Undiagnosed':r.cat;
+    if(aggOcc[wFmt]) aggOcc[wFmt][r.cls]=(aggOcc[wFmt][r.cls]||0)+r.occ;
+  });
+  const labels=weeks.map(w=>{const[d,m]=w.split('/');return`${d}/${m}`;});
+  const totals=weeks.map(w=>parseFloat(ORDER.reduce((s,c)=>s+(aggPct[w][c]||0),0).toFixed(2)));
+  const datasets=ORDER.map(cls=>({
+    label:cls,
+    data:weeks.map(w=>parseFloat(aggPct[w][cls].toFixed(2))),
+    occData:weeks.map(w=>aggOcc[w][cls]||0),
+    backgroundColor:COLORS[cls],borderWidth:0,stack:'total'
+  }));
+  return{labels,datasets,totals,weeks,aggOcc};
+}
+
+function makeChart(id, rawPct, rawFull){
+  const{labels,datasets,totals,weeks,aggOcc}=buildChartData(rawPct,rawFull);
+
+  // add rain line dataset
+  const rainDataset={
+    type:'line',
+    label:'Chuva SP (mm)',
+    data:RAIN_SP,
+    borderColor:'#1565C0',
+    backgroundColor:'rgba(21,101,192,0.12)',
+    borderWidth:2,
+    pointRadius:3,
+    pointBackgroundColor:'#1565C0',
+    fill:false,
+    tension:0.3,
+    yAxisID:'yRain',
+    order:0
+  };
+
+  const allDatasets=[...datasets, rainDataset];
+
+  // custom plugin: draw total above bar AND occurrences inside each segment
+  const labelsPlugin={
+    id:'barLabels',
+    afterDatasetsDraw(chart){
+      const{ctx:c,scales:{x,y},data}=chart;
+      c.save();
+      data.datasets.forEach((ds,dsIdx)=>{
+        if(!ds.occData) return;
+        ds.data.forEach((val,i)=>{
+          if(val<=0) return;
+          const meta=chart.getDatasetMeta(dsIdx);
+          const bar=meta.data[i];
+          if(!bar) return;
+          const barH=bar.height||0;
+          if(barH<9) return;
+          const occ=ds.occData[i];
+          if(!occ) return;
+          c.font=`600 ${barH>=14?8:7}px Arial`;
+          c.fillStyle='rgba(0,0,0,0.75)';
+          c.textAlign='center';
+          c.textBaseline='middle';
+          c.fillText(occ, bar.x, bar.y+barH/2);
+        });
+      });
+      c.font='700 8px Arial';
+      c.fillStyle='#222';
+      c.textAlign='center';
+      c.textBaseline='bottom';
+      totals.forEach((val,i)=>{
+        c.fillText(val.toFixed(2)+'%', x.getPixelForValue(i), y.getPixelForValue(val)-2);
+      });
+      c.restore();
+    }
+  };
+
+  return new Chart(document.getElementById(id).getContext('2d'),{
+    type:'bar',
+    data:{labels,datasets:allDatasets},
+    plugins:[labelsPlugin],
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{label:c=>c.dataset.label==='Chuva SP (mm)'?` Chuva: ${c.parsed.y} mm`:` ${c.dataset.label}: ${c.parsed.y.toFixed(2)}% (${c.dataset.occData[c.dataIndex]} casos)`}}
+      },
+      scales:{
+        x:{stacked:true,ticks:{font:{size:8},autoSkip:false,maxRotation:45},grid:{display:false}},
+        y:{stacked:true,min:0,max:4,ticks:{font:{size:8},callback:v=>v.toFixed(1)+'%',stepSize:0.5},grid:{color:'rgba(0,0,0,0.06)'}},
+        yRain:{
+          type:'linear',position:'right',
+          min:0,max:120,
+          ticks:{font:{size:8},callback:v=>v+'mm',color:'#1565C0',stepSize:30},
+          grid:{display:false},
+          title:{display:true,text:'mm',color:'#1565C0',font:{size:8}}
+        }
+      }
+    }
+  });
+}
+
+window.addEventListener('load',()=>{
+  buildTable();
+  makeChart('cpxChart',rawCPX_pct,rawCPX_full);
+  makeChart('comfortChart',rawCOM_pct,rawCOM_full);
+});
+
+document.getElementById('export-btn').addEventListener('click',()=>{
+  html2canvas(document.getElementById('slide'),{scale:2,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(canvas=>{
+    const a=document.createElement('a');
+    a.download='WBR_Immobilizing_Full.png';
+    a.href=canvas.toDataURL('image/png');
+    a.click();
+  });
+});
+</script>
+</body>
+</html>
