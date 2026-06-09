@@ -1,6 +1,6 @@
 # Motor Cap Alignment — Sensor Indutivo com ESP32
 
-Ferramenta de medição de deflexão da tampa do motor usando sensor indutivo analógico, ADC ADS1115 e LCD Keypad Shield 1602.
+Ferramenta de medição de deflexão da tampa do motor usando sensor indutivo analógico, ADC ADS1115, LCD I2C 1602 e botão discreto.
 
 ---
 
@@ -11,7 +11,8 @@ Ferramenta de medição de deflexão da tampa do motor usando sensor indutivo an
 | Microcontrolador | ESP32 NodeMCU-32 (30 pinos) |
 | Sensor indutivo | METALTEX I18-8-ANV (0–10V, range 8mm) |
 | ADC | ADS1115 (16-bit, I2C) |
-| Display + botões | LCD Keypad Shield 1602 (paralelo 4-bit + ladder resistivo) |
+| Display | LCD 1602 I2C (módulo PCF8574, endereço 0x27) |
+| Botão | Botão tátil discreto (NO — normalmente aberto) |
 | Fonte | 24V + LM2596 step-down para 5V |
 | Resistores | 2× 10kΩ (divisor de tensão do sensor) |
 
@@ -20,9 +21,9 @@ Ferramenta de medição de deflexão da tampa do motor usando sensor indutivo an
 ## Topologia de Ligação
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                          FONTE 24V                               │
-└──────┬───────────────────────────────────────┬───────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                            FONTE 24V                                 │
+└──────┬───────────────────────────────────────┬─────────────────────-─┘
        │                                       │
        ▼                                       ▼
 ┌─────────────┐                      ┌──────────────────┐
@@ -30,13 +31,13 @@ Ferramenta de medição de deflexão da tampa do motor usando sensor indutivo an
 │ I18-8-ANV   │                      │    24V → 5V      │
 │ OUT (0–10V) │                      └────────┬─────────┘
 └──────┬──────┘                               │ 5V
-       │                          ┌───────────┼──────────────┐
-       ▼                          │           │              │
-    R1=10kΩ                       ▼           ▼              ▼
-       │                   ┌──────────┐ ┌──────────┐ ┌──────────────┐
-    [ADS1115 A0]           │  ESP32   │ │ ADS1115  │ │ LCD Keypad   │
-       │                   │NodeMCU-32│ │  I2C     │ │   Shield     │
-    R2=10kΩ                └──────────┘ └──────────┘ └──────────────┘
+       │                     ┌────────────────┼──────────────┬──────────────┐
+       ▼                     │                │              │              │
+    R1=10kΩ                  ▼                ▼              ▼              ▼
+       │              ┌──────────┐     ┌──────────┐  ┌────────────┐  ┌──────────┐
+    [ADS1115 A0]      │  ESP32   │     │ ADS1115  │  │ LCD 1602   │  │  Botão   │
+       │              │NodeMCU-32│     │  (I2C)   │  │   (I2C)    │  │Discreto  │
+    R2=10kΩ           └──────────┘     └──────────┘  └────────────┘  └──────────┘
        │
       GND
 ```
@@ -63,9 +64,25 @@ Sensor OUT ──── R1 (10kΩ) ──┬──── ADS1115 A0
 
 ---
 
-## Conexões ADS1115 → ESP32 (I2C)
+## Barramento I2C → ESP32
 
-| ADS1115 | ESP32 GPIO |
+O LCD e o ADS1115 **compartilham o mesmo barramento I2C**:
+
+| Sinal | ESP32 GPIO |
+|---|---|
+| SDA | GPIO 21 |
+| SCL | GPIO 22 |
+
+| Dispositivo | Endereço I2C |
+|---|---|
+| ADS1115 | 0x48 (padrão) |
+| LCD PCF8574 | 0x27 (típico) — tente 0x3F se não funcionar |
+
+---
+
+## Conexões ADS1115
+
+| ADS1115 | ESP32 |
 |---|---|
 | SDA | GPIO 21 |
 | SCL | GPIO 22 |
@@ -75,58 +92,57 @@ Sensor OUT ──── R1 (10kΩ) ──┬──── ADS1115 A0
 
 ---
 
-## LCD Keypad Shield → ESP32
+## Conexões LCD 1602 I2C
 
-O shield usa LCD paralelo 4-bit e botões por divisor resistivo (pino analógico).
-Como o ESP32 opera em **3.3V**, o rail dos botões deve ser alimentado com **3.3V** (não 5V) para não danificar o GPIO34.
-
-### Conexão dos pinos do LCD
-
-| Sinal no shield | ESP32 GPIO |
+| LCD I2C (PCF8574) | ESP32 |
 |---|---|
-| RS | GPIO 19 |
-| EN | GPIO 23 |
-| D4 | GPIO 18 |
-| D5 | GPIO 17 |
-| D6 | GPIO 16 |
-| D7 | GPIO 15 |
-| Backlight | 3.3V (sempre ligado) |
+| SDA | GPIO 21 |
+| SCL | GPIO 22 |
+| VCC | 5V |
 | GND | GND |
-| VCC (LCD) | 5V |
 
-### Conexão dos botões
-
-| Sinal no shield | ESP32 GPIO |
-|---|---|
-| A0 (botões) | GPIO 34 |
-| VCC do ladder resistivo | **3.3V** ⚠️ |
-
-> ⚠️ **Importante:** o pino VCC que alimenta o divisor resistivo dos botões (normalmente ligado ao 5V do Arduino) deve ser conectado ao **3.3V do ESP32**. O GPIO34 é somente leitura e suporta no máximo 3.3V.
-
-### Como o botão SELECT é detectado
-
-O shield possui um ladder resistivo que entrega tensões diferentes conforme o botão pressionado. Com VCC = 3.3V:
-
-| Botão | Tensão aprox. | ADC (12-bit) |
-|---|---|---|
-| RIGHT | 0.0V | ~0 |
-| UP | 0.47V | ~583 |
-| DOWN | 0.78V | ~968 |
-| LEFT | 1.10V | ~1365 |
-| **SELECT** | **2.05V** | **~2549** |
-| Nenhum | 3.3V | ~4095 |
-
-O código detecta SELECT quando o ADC lê entre **1800 e 3200**.
+> O backlight é controlado pelo próprio módulo PCF8574 via `lcd.backlight()` no código.
 
 ---
 
-## Como Compilar e Gravar (Arduino IDE)
+## Conexão do Botão Discreto
 
-### 1. Instalar o Arduino IDE
+O botão é do tipo **NO (normalmente aberto)**. Um terminal vai ao GPIO e o outro ao GND. O pull-up interno do ESP32 mantém o pino em HIGH; pressionar o botão força LOW.
 
-Baixe e instale em: https://arduino.cc/en/software
+```
+GPIO 32 ──── [ BTN ] ──── GND
+              (NO)
+```
 
-### 2. Adicionar suporte ao ESP32
+| Sinal | ESP32 GPIO |
+|---|---|
+| Botão | GPIO 32 |
+| GND | GND |
+
+> Não é necessário resistor externo — o código usa `INPUT_PULLUP`.
+
+---
+
+## Como Compilar e Gravar
+
+### Opção A — Arduino IDE (GUI)
+
+#### 1. Instalar o Arduino IDE
+
+```bash
+# Baixe o AppImage em https://arduino.cc/en/software e torne executável:
+chmod +x arduino-ide_*.AppImage
+./arduino-ide_*.AppImage
+```
+
+#### 2. Permissão de porta serial (Linux)
+
+```bash
+sudo usermod -aG dialout $USER
+# Faça logout e login novamente para aplicar
+```
+
+#### 3. Adicionar suporte ao ESP32
 
 1. Abra *File → Preferences*
 2. No campo **Additional Boards Manager URLs**, cole:
@@ -137,45 +153,115 @@ Baixe e instale em: https://arduino.cc/en/software
 4. Vá em *Tools → Board → Boards Manager*
 5. Busque `esp32`, selecione o pacote da **Espressif Systems** e clique em **Install**
 
-### 3. Instalar as bibliotecas
+#### 4. Instalar as bibliotecas
 
 Vá em *Tools → Manage Libraries* e instale:
 
-| Biblioteca | Autor | Observação |
-|---|---|---|
-| `Adafruit ADS1X15` | Adafruit | ADC |
-| `LiquidCrystal` | Arduino | já inclusa na IDE |
+| Biblioteca | Autor |
+|---|---|
+| `Adafruit ADS1X15` | Adafruit |
+| `LiquidCrystal_I2C` | Frank de Brabander |
 
-### 4. Configurar a placa
+#### 5. Configurar e gravar
 
-Vá em *Tools → Board → ESP32 Arduino* e selecione:
-```
-NodeMCU-32S
-```
-ou, se não aparecer:
-```
-ESP32 Dev Module
-```
-
-### 5. Selecionar a porta
-
-Conecte o ESP32 via USB e vá em *Tools → Port → COMx*.
-
-> Se a porta não aparecer, instale o driver CP210x: https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers
-
-### 6. Gravar
-
-Abra `motor_alignment.ino` e clique em **Upload** (→).
+1. *Tools → Board → ESP32 Arduino* → `NodeMCU-32S` (ou `ESP32 Dev Module`)
+2. *Tools → Port* → `/dev/ttyUSB0` ou `/dev/ttyACM0`
+3. Clique em **Upload** (→)
 
 > Se o upload travar, segure o botão **BOOT** do ESP32 enquanto o upload inicia.
 
 ---
 
+### Opção B — arduino-cli (linha de comando)
+
+Mais rápido para quem prefere terminal.
+
+#### 1. Instalar o arduino-cli
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+sudo mv bin/arduino-cli /usr/local/bin/
+```
+
+#### 2. Permissão de porta serial
+
+```bash
+sudo usermod -aG dialout $USER
+# Faça logout e login novamente para aplicar
+```
+
+#### 3. Configurar o arduino-cli
+
+```bash
+arduino-cli config init
+arduino-cli config add board_manager.additional_urls \
+  https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+arduino-cli core update-index
+arduino-cli core install esp32:esp32
+```
+
+#### 4. Instalar as bibliotecas
+
+```bash
+arduino-cli lib install "Adafruit ADS1X15"
+arduino-cli lib install "LiquidCrystal I2C"
+```
+
+#### 5. Compilar
+
+```bash
+arduino-cli compile \
+  --fqbn esp32:esp32:nodemcu-32s \
+  motor_alignment.ino
+```
+
+#### 6. Identificar a porta
+
+```bash
+arduino-cli board list
+# Exemplo de saída:
+# /dev/ttyUSB0   Serial Port (USB)   CP2102 ...
+```
+
+#### 7. Gravar
+
+```bash
+arduino-cli upload \
+  --fqbn esp32:esp32:nodemcu-32s \
+  --port /dev/ttyUSB0 \
+  motor_alignment.ino
+```
+
+> Se preferir compilar e gravar em um único comando:
+> ```bash
+> arduino-cli compile --fqbn esp32:esp32:nodemcu-32s motor_alignment.ino && \
+> arduino-cli upload  --fqbn esp32:esp32:nodemcu-32s --port /dev/ttyUSB0 motor_alignment.ino
+> ```
+
+#### 8. Monitor serial (opcional)
+
+```bash
+arduino-cli monitor --port /dev/ttyUSB0 --config baudrate=115200
+```
+
+---
+
+## Solução de Problemas
+
+| Sintoma | Causa provável | Solução |
+|---|---|---|
+| LCD não acende | Endereço I2C errado | Troque `0x27` por `0x3F` no define `LCD_I2C_ADDR` |
+| LCD acende mas sem texto | Contraste do potenciômetro do módulo PCF8574 | Ajuste o trimpot na parte traseira do módulo |
+| Botão não responde | Conexão GND ou GPIO errada | Verifique se um terminal vai ao GPIO 32 e o outro ao GND |
+| ADS1115 não encontrado | Endereço ou fiação I2C | Confirme SDA→GPIO21, SCL→GPIO22 e alimentação 5V |
+
+---
+
 ## Como Usar
 
-1. Ligue o equipamento — display mostra `Pressione SELECT`
+1. Ligue o equipamento — display mostra `Pressione BTN`
 2. Posicione o sensor na referência (posição zero)
-3. Pressione o botão **SELECT** do shield
+3. Pressione o **botão discreto**
 4. O sistema coleta amostras por **10 segundos** com countdown e calcula a média como referência
 5. Display passa a mostrar a distância e o status:
 
