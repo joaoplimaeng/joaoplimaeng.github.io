@@ -2,7 +2,7 @@
  * Motor Cap Alignment — Sensor Indutivo com ESP32
  *
  * Sensor:  METALTEX I18-8-ANV (0–10V, range 8mm)
- * ADC:     ADS1115 via I2C — após divisor 2:1 (10V → 5V)
+ * ADC:     ADS1115 via I2C — após divisor 3:1 (10V → 3.33V)
  * Display: LCD 1602 I2C (PCF8574, endereço 0x27)
  * Botão:   Botão discreto → GPIO 32 (INPUT_PULLUP, ativo em LOW)
  * MCU:     ESP32 NodeMCU-32 (30 pinos, 3.3V)
@@ -25,11 +25,11 @@
 #define LCD_ROWS      2
 
 // ── Pino do botão discreto ────────────────────────────────────────────────
-#define BTN_PIN  32   // GPIO32 — INPUT_PULLUP, pressão liga ao GND
+#define BTN_PIN  23   // GPIO23 — INPUT_PULLUP, pressão liga ao GND
 
 // ── Constantes de conversão do sensor ────────────────────────────────────
 constexpr float ADS_LSB_MV      = 0.1875f;  // GAIN_TWOTHIRDS: 1 LSB = 0.1875 mV
-constexpr float DIVIDER_RATIO   = 2.0f;      // R1=R2=10kΩ → 10V → 5V
+constexpr float DIVIDER_RATIO   = 3.0f;      // R1=10kΩ, R2=5kΩ → 10V → 3.33V
 constexpr float SENSOR_RANGE_MM = 8.0f;      // range nominal I18-8-ANV
 constexpr float SENSOR_MAX_V    = 10.0f;     // tensão de fundo de escala
 

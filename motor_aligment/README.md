@@ -46,12 +46,12 @@ Ferramenta de medição de deflexão da tampa do motor usando sensor indutivo an
 
 ## Divisor de Tensão do Sensor (obrigatório)
 
-O sensor entrega até **10V**, o ADS1115 suporta no máximo ~6.1V. O divisor 1:2 reduz para 0–5V:
+O sensor entrega até **10V**, o ADS1115 suporta no máximo ~6.1V. O divisor 3:1 reduz para 0–3.33V:
 
 ```
 Sensor OUT ──── R1 (10kΩ) ──┬──── ADS1115 A0
                              │
-                         R2 (10kΩ)
+                          R2 (5kΩ)
                              │
                             GND
 ```
@@ -59,8 +59,8 @@ Sensor OUT ──── R1 (10kΩ) ──┬──── ADS1115 A0
 | Tensão do sensor | Tensão no ADS1115 | Distância |
 |---|---|---|
 | 0V | 0V | 0.00 mm |
-| 5V | 2.5V | 4.00 mm |
-| 10V | 5.0V | 8.00 mm |
+| 5V | 1.67V | 4.00 mm |
+| 10V | 3.33V | 8.00 mm |
 
 ---
 
