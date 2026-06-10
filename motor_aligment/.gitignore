@@ -1,0 +1,24 @@
+# KiCad auto-backups and cache
+*-backups/
+.mcp-backups/
+fp-info-cache
+*.lck
+_autosave-*
+*#*
+
+# Local project settings (window positions, UI state)
+*.kicad_prl
+
+# Log files
+logs/
+
+# Generated outputs (regenerate from source)
+*.drl
+*.gbr
+*.gbl
+*.gbo
+*.gbp
+*.gbs
+*.gtp
+*.gts
+motor_alignment_drc_violations.json
