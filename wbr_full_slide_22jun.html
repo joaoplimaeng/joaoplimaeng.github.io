@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #f0f0f0; font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 16px; gap: 12px; }
+
+#slide { width: 1280px; background: #fff; padding: 14px 28px 18px 28px; display: flex; flex-direction: column; gap: 10px; border: 1px solid #ccc; }
+.top-spacer { height: 32px; }
+.legend { display: flex; gap: 14px; }
+.legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #444; }
+.legend-box { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+/* Charts row */
+.charts-row { display: flex; gap: 10px; align-items: stretch; }
+.chart-col { flex: 1; display: flex; flex-direction: column; }
+.chart-title { font-size: 10px; color: #4472C4; text-align: center; margin-bottom: 2px; font-weight: 600; }
+.chart-wrap { position: relative; height: 300px; }
+
+/* Tables row */
+.tables-row { display: flex; gap: 10px; }
+.tbl-block { flex: 1; border: 1px solid #d0d4db; border-radius: 6px; overflow: hidden; }
+.tbl-header { display: flex; align-items: center; gap: 7px; padding: 7px 12px; border-bottom: 1px solid #e2e5ea; background: #f8f9fb; }
+.tbl-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tbl-model { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; }
+.tbl-meta { font-size: 9px; color: #888; margin-left: auto; }
+table { width: 100%; border-collapse: collapse; }
+thead tr { background: #f2f4f7; }
+th { font-size: 8.5px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.08em; padding: 5px 10px; text-align: left; border-bottom: 1px solid #e8eaed; white-space: nowrap; }
+th.r { text-align: right; }
+td { font-size: 10.5px; padding: 6px 10px; border-bottom: 1px solid #f0f2f5; vertical-align: middle; color: #222; }
+td.r { text-align: right; font-size: 10px; font-family: monospace; }
+tr:last-child td { border-bottom: none; }
+.rank { font-size: 9px; color: #bbb; width: 16px; }
+.badge { display: inline-flex; align-items: center; font-size: 8.5px; font-weight: 500; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.og  { background: #eaf4ee; color: #1a7a3a; border: 1px solid #b6dfc4; }
+.krc { background: #fdf3e3; color: #9a5c00; border: 1px solid #f0d09a; }
+.urc { background: #fdecea; color: #a02020; border: 1px solid #f0b8b8; }
+.bkl { background: #e8f0fe; color: #1a4fba; border: 1px solid #aac4f5; }
+.oth { background: #f2f3f5; color: #555; border: 1px solid #d0d4db; }
+.bar-wrap { display: flex; align-items: center; gap: 5px; }
+.bar-track { flex: 1; height: 3px; background: #e8eaed; border-radius: 2px; overflow: hidden; min-width: 36px; }
+.bar-fill { height: 100%; border-radius: 2px; }
+.pct-val { font-size: 9.5px; color: #777; min-width: 32px; text-align: right; font-family: monospace; }
+.trend { font-size: 9.5px; font-weight: 700; font-family: monospace; }
+.up  { color: #c0392b; }
+.dn  { color: #1a7a3a; }
+.neu { color: #bbb; }
+
+#export-btn { padding: 7px 22px; cursor: pointer; font-size: 13px; border: 1px solid #888; border-radius: 4px; background: #f5f5f5; }
+</style>
+</head>
+<body>
+<div id="slide">
+  <div class="top-spacer"></div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <span class="legend-item"><span class="legend-box" style="background:#D3D3D3"></span>Other</span>
+    <span class="legend-item"><span class="legend-box" style="background:#4472C4"></span>Backlog</span>
+    <span class="legend-item"><span class="legend-box" style="background:#FF0000"></span>Unknown Root Cause</span>
+    <span class="legend-item"><span class="legend-box" style="background:#FFC000"></span>Known Root Cause</span>
+    <span class="legend-item"><span class="legend-box" style="background:#70AD47"></span>On Going Solution</span>
+    <span class="legend-item"><span style="display:inline-block;width:20px;height:2px;background:#1565C0;vertical-align:middle;margin-right:2px;"></span>Rainfall SP (mm)</span>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-row">
+    <div class="chart-col">
+      <div class="chart-title">Fleet Percentage Affected — CPX</div>
+      <div class="chart-wrap"><canvas id="cpxChart"></canvas></div>
+    </div>
+    <div class="chart-col">
+      <div class="chart-title">Fleet Percentage Affected — Comfort</div>
+      <div class="chart-wrap"><canvas id="comfortChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Top 5 Tables -->
+  <div class="tables-row">
+    <!-- CPX -->
+    <div class="tbl-block">
+      <div class="tbl-header">
+        <span class="tbl-dot" style="background:#2563eb"></span>
+        <span class="tbl-model" style="color:#2563eb">VMOTO CPX</span>
+        <span class="tbl-meta" id="cpxMeta">frota 2.987</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:20px">#</th><th>Categoria</th><th>Classe</th>
+          <th class="r" style="width:48px">Casos</th>
+          <th class="r" style="width:90px">% Frota</th>
+          <th class="r" style="width:52px">vs LW-1</th>
+        </tr></thead>
+        <tbody id="cpxTbody"></tbody>
+      </table>
+    </div>
+    <!-- Comfort -->
+    <div class="tbl-block">
+      <div class="tbl-header">
+        <span class="tbl-dot" style="background:#7c3aed"></span>
+        <span class="tbl-model" style="color:#7c3aed">VAMMO COMFORT</span>
+        <span class="tbl-meta" id="comMeta">frota 3.861</span>
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:20px">#</th><th>Categoria</th><th>Classe</th>
+          <th class="r" style="width:48px">Casos</th>
+          <th class="r" style="width:90px">% Frota</th>
+          <th class="r" style="width:52px">vs LW-1</th>
+        </tr></thead>
+        <tbody id="comTbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<button id="export-btn">⬇ Export PNG (3x)</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+Object.defineProperty(window,'devicePixelRatio',{get:()=>3});
+
+const ORDER=['On Going Solution','Known Root Cause','Unknown Root Cause','Backlog','Other'];
+const COLORS={'On Going Solution':'#70AD47','Known Root Cause':'#FFC000','Unknown Root Cause':'#FF0000','Backlog':'#4472C4','Other':'#D3D3D3'};
+const BADGE={'On Going Solution':'og','Known Root Cause':'krc','Unknown Root Cause':'urc','Backlog':'bkl','Other':'oth'};
+const BADGE_LABEL={'On Going Solution':'On Going','Known Root Cause':'Known RC','Unknown Root Cause':'Unknown RC','Backlog':'Backlog','Other':'Other'};
+
+const RAIN_SP=[52,48,61,44,38,55,42,67,71,58,34,29,22,31,18,12,8,6,5,8,24,29,4,12,18,22,8];
+
+const rawCPX=[
+{"w":"05/01/2026","cat":"Alarm","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"05/01/2026","cat":"Battery","occ":3,"cls":"On Going Solution","pct":0.13},{"w":"05/01/2026","cat":"Circuit Breaker","occ":3,"cls":"On Going Solution","pct":0.13},{"w":"05/01/2026","cat":"Controller","occ":11,"cls":"On Going Solution","pct":0.47},{"w":"05/01/2026","cat":"IOT","occ":13,"cls":"Known Root Cause","pct":0.56},{"w":"05/01/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"05/01/2026","cat":"Secondary Harness","occ":8,"cls":"On Going Solution","pct":0.34},{"w":"05/01/2026","cat":"Throttle","occ":7,"cls":"Known Root Cause","pct":0.30},{"w":"05/01/2026","cat":"Undiagnosed","occ":10,"cls":"Other","pct":0.43},
+{"w":"12/01/2026","cat":"Alarm","occ":7,"cls":"On Going Solution","pct":0.30},{"w":"12/01/2026","cat":"Battery","occ":2,"cls":"On Going Solution","pct":0.09},{"w":"12/01/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution","pct":0.09},{"w":"12/01/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"12/01/2026","cat":"Controller","occ":13,"cls":"On Going Solution","pct":0.56},{"w":"12/01/2026","cat":"IOT","occ":11,"cls":"Known Root Cause","pct":0.47},{"w":"12/01/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.09},{"w":"12/01/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.09},{"w":"12/01/2026","cat":"Secondary Harness","occ":13,"cls":"On Going Solution","pct":0.56},{"w":"12/01/2026","cat":"Side Stand Sensor","occ":6,"cls":"Known Root Cause","pct":0.26},{"w":"12/01/2026","cat":"Throttle","occ":9,"cls":"Known Root Cause","pct":0.39},{"w":"12/01/2026","cat":"Undiagnosed","occ":15,"cls":"Other","pct":0.65},
+{"w":"19/01/2026","cat":"Alarm","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"19/01/2026","cat":"Battery","occ":5,"cls":"On Going Solution","pct":0.22},{"w":"19/01/2026","cat":"Circuit Breaker","occ":3,"cls":"On Going Solution","pct":0.13},{"w":"19/01/2026","cat":"Controller","occ":12,"cls":"On Going Solution","pct":0.52},{"w":"19/01/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause","pct":0.04},{"w":"19/01/2026","cat":"IOT","occ":8,"cls":"Known Root Cause","pct":0.35},{"w":"19/01/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause","pct":0.13},{"w":"19/01/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"19/01/2026","cat":"Secondary Harness","occ":4,"cls":"On Going Solution","pct":0.17},{"w":"19/01/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause","pct":0.09},{"w":"19/01/2026","cat":"Throttle","occ":9,"cls":"Known Root Cause","pct":0.39},{"w":"19/01/2026","cat":"Undiagnosed","occ":10,"cls":"Other","pct":0.43},
+{"w":"26/01/2026","cat":"Battery","occ":2,"cls":"On Going Solution","pct":0.09},{"w":"26/01/2026","cat":"Circuit Breaker","occ":4,"cls":"On Going Solution","pct":0.17},{"w":"26/01/2026","cat":"Controller","occ":14,"cls":"On Going Solution","pct":0.60},{"w":"26/01/2026","cat":"ECU","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"26/01/2026","cat":"IOT","occ":10,"cls":"Known Root Cause","pct":0.43},{"w":"26/01/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause","pct":0.13},{"w":"26/01/2026","cat":"Secondary Harness","occ":8,"cls":"On Going Solution","pct":0.34},{"w":"26/01/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.13},{"w":"26/01/2026","cat":"Throttle","occ":10,"cls":"Known Root Cause","pct":0.43},{"w":"26/01/2026","cat":"Undiagnosed","occ":11,"cls":"Other","pct":0.47},
+{"w":"02/02/2026","cat":"Alarm","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"02/02/2026","cat":"Backlog","occ":1,"cls":"Backlog","pct":0.04},{"w":"02/02/2026","cat":"Battery","occ":4,"cls":"On Going Solution","pct":0.17},{"w":"02/02/2026","cat":"Circuit Breaker","occ":3,"cls":"On Going Solution","pct":0.13},{"w":"02/02/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"02/02/2026","cat":"Controller","occ":13,"cls":"On Going Solution","pct":0.55},{"w":"02/02/2026","cat":"ECU","occ":2,"cls":"On Going Solution","pct":0.08},{"w":"02/02/2026","cat":"IOT","occ":9,"cls":"Known Root Cause","pct":0.38},{"w":"02/02/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause","pct":0.13},{"w":"02/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"02/02/2026","cat":"Secondary Harness","occ":9,"cls":"On Going Solution","pct":0.38},{"w":"02/02/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"02/02/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.17},{"w":"02/02/2026","cat":"Undiagnosed","occ":8,"cls":"Other","pct":0.34},
+{"w":"09/02/2026","cat":"Backlog","occ":3,"cls":"Backlog","pct":0.13},{"w":"09/02/2026","cat":"Battery","occ":5,"cls":"On Going Solution","pct":0.21},{"w":"09/02/2026","cat":"Circuit Breaker","occ":5,"cls":"On Going Solution","pct":0.21},{"w":"09/02/2026","cat":"Controller","occ":6,"cls":"On Going Solution","pct":0.25},{"w":"09/02/2026","cat":"IOT","occ":18,"cls":"Known Root Cause","pct":0.75},{"w":"09/02/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"09/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"09/02/2026","cat":"Secondary Harness","occ":7,"cls":"On Going Solution","pct":0.29},{"w":"09/02/2026","cat":"Side Stand Sensor","occ":8,"cls":"Known Root Cause","pct":0.33},{"w":"09/02/2026","cat":"Throttle","occ":8,"cls":"Known Root Cause","pct":0.33},{"w":"09/02/2026","cat":"Undiagnosed","occ":13,"cls":"Other","pct":0.54},
+{"w":"16/02/2026","cat":"Alarm","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"16/02/2026","cat":"Backlog","occ":1,"cls":"Backlog","pct":0.04},{"w":"16/02/2026","cat":"Battery","occ":3,"cls":"On Going Solution","pct":0.12},{"w":"16/02/2026","cat":"Controller","occ":17,"cls":"On Going Solution","pct":0.71},{"w":"16/02/2026","cat":"IOT","occ":12,"cls":"Known Root Cause","pct":0.50},{"w":"16/02/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"16/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"16/02/2026","cat":"Secondary Harness","occ":9,"cls":"On Going Solution","pct":0.37},{"w":"16/02/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"16/02/2026","cat":"Throttle","occ":14,"cls":"Known Root Cause","pct":0.58},{"w":"16/02/2026","cat":"Undiagnosed","occ":10,"cls":"Other","pct":0.42},
+{"w":"23/02/2026","cat":"Backlog","occ":3,"cls":"Backlog","pct":0.12},{"w":"23/02/2026","cat":"Battery","occ":2,"cls":"On Going Solution","pct":0.08},{"w":"23/02/2026","cat":"Controller","occ":9,"cls":"On Going Solution","pct":0.37},{"w":"23/02/2026","cat":"IOT","occ":19,"cls":"Known Root Cause","pct":0.79},{"w":"23/02/2026","cat":"In Loco","occ":1,"cls":"Other","pct":0.04},{"w":"23/02/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"23/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"23/02/2026","cat":"Secondary Harness","occ":6,"cls":"On Going Solution","pct":0.25},{"w":"23/02/2026","cat":"Throttle","occ":12,"cls":"Known Root Cause","pct":0.50},{"w":"23/02/2026","cat":"Undiagnosed","occ":18,"cls":"Other","pct":0.75},
+{"w":"02/03/2026","cat":"Backlog","occ":7,"cls":"Backlog","pct":0.29},{"w":"02/03/2026","cat":"Cluster","occ":2,"cls":"On Going Solution","pct":0.08},{"w":"02/03/2026","cat":"Controller","occ":11,"cls":"On Going Solution","pct":0.45},{"w":"02/03/2026","cat":"DCDC","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"02/03/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause","pct":0.04},{"w":"02/03/2026","cat":"IOT","occ":8,"cls":"Known Root Cause","pct":0.33},{"w":"02/03/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.12},{"w":"02/03/2026","cat":"Side Stand Sensor","occ":5,"cls":"Known Root Cause","pct":0.20},{"w":"02/03/2026","cat":"Throttle","occ":9,"cls":"Known Root Cause","pct":0.37},{"w":"02/03/2026","cat":"Undiagnosed","occ":16,"cls":"Other","pct":0.65},
+{"w":"09/03/2026","cat":"Backlog","occ":1,"cls":"Backlog","pct":0.04},{"w":"09/03/2026","cat":"Battery","occ":2,"cls":"On Going Solution","pct":0.08},{"w":"09/03/2026","cat":"Circuit Breaker","occ":4,"cls":"On Going Solution","pct":0.16},{"w":"09/03/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"09/03/2026","cat":"Controller","occ":14,"cls":"On Going Solution","pct":0.56},{"w":"09/03/2026","cat":"DCDC","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"09/03/2026","cat":"IOT","occ":13,"cls":"Known Root Cause","pct":0.52},{"w":"09/03/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"09/03/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"09/03/2026","cat":"Secondary Harness","occ":4,"cls":"On Going Solution","pct":0.16},{"w":"09/03/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.12},{"w":"09/03/2026","cat":"Throttle","occ":7,"cls":"Known Root Cause","pct":0.28},{"w":"09/03/2026","cat":"Undiagnosed","occ":16,"cls":"Other","pct":0.64},
+{"w":"16/03/2026","cat":"Battery","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"16/03/2026","cat":"Circuit Breaker","occ":4,"cls":"On Going Solution","pct":0.15},{"w":"16/03/2026","cat":"Cluster","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"16/03/2026","cat":"Controller","occ":10,"cls":"On Going Solution","pct":0.38},{"w":"16/03/2026","cat":"IOT","occ":11,"cls":"Known Root Cause","pct":0.41},{"w":"16/03/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"16/03/2026","cat":"Motor","occ":5,"cls":"Known Root Cause","pct":0.19},{"w":"16/03/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution","pct":0.08},{"w":"16/03/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"16/03/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.15},{"w":"16/03/2026","cat":"Undiagnosed","occ":24,"cls":"Other","pct":0.90},
+{"w":"23/03/2026","cat":"Backlog","occ":1,"cls":"Backlog","pct":0.04},{"w":"23/03/2026","cat":"Battery","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"23/03/2026","cat":"Circuit Breaker","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"23/03/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"23/03/2026","cat":"Controller","occ":9,"cls":"On Going Solution","pct":0.33},{"w":"23/03/2026","cat":"DCDC","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"23/03/2026","cat":"IOT","occ":7,"cls":"Known Root Cause","pct":0.26},{"w":"23/03/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"23/03/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"23/03/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"23/03/2026","cat":"Throttle","occ":7,"cls":"Known Root Cause","pct":0.26},{"w":"23/03/2026","cat":"Undiagnosed","occ":15,"cls":"Other","pct":0.56},
+{"w":"30/03/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"30/03/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"30/03/2026","cat":"Controller","occ":9,"cls":"On Going Solution","pct":0.33},{"w":"30/03/2026","cat":"IOT","occ":4,"cls":"Known Root Cause","pct":0.15},{"w":"30/03/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"30/03/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"30/03/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"30/03/2026","cat":"Side Stand Sensor","occ":7,"cls":"Known Root Cause","pct":0.26},{"w":"30/03/2026","cat":"Throttle","occ":12,"cls":"Known Root Cause","pct":0.44},{"w":"30/03/2026","cat":"Undiagnosed","occ":5,"cls":"Other","pct":0.19},
+{"w":"06/04/2026","cat":"Alarm","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"06/04/2026","cat":"Battery","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"06/04/2026","cat":"Circuit Breaker","occ":7,"cls":"On Going Solution","pct":0.26},{"w":"06/04/2026","cat":"Controller","occ":5,"cls":"On Going Solution","pct":0.18},{"w":"06/04/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause","pct":0.04},{"w":"06/04/2026","cat":"IOT","occ":5,"cls":"Known Root Cause","pct":0.18},{"w":"06/04/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"06/04/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"06/04/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"06/04/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"06/04/2026","cat":"Throttle","occ":8,"cls":"Known Root Cause","pct":0.30},{"w":"06/04/2026","cat":"Undiagnosed","occ":12,"cls":"Other","pct":0.44},
+{"w":"13/04/2026","cat":"Battery","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"13/04/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"13/04/2026","cat":"Controller","occ":9,"cls":"On Going Solution","pct":0.33},{"w":"13/04/2026","cat":"IOT","occ":5,"cls":"Known Root Cause","pct":0.18},{"w":"13/04/2026","cat":"Main Harness","occ":4,"cls":"Known Root Cause","pct":0.15},{"w":"13/04/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"13/04/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"13/04/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"13/04/2026","cat":"Throttle","occ":9,"cls":"Known Root Cause","pct":0.33},{"w":"13/04/2026","cat":"Undiagnosed","occ":11,"cls":"Other","pct":0.40},
+{"w":"20/04/2026","cat":"Controller","occ":5,"cls":"On Going Solution","pct":0.18},{"w":"20/04/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"20/04/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"20/04/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"20/04/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"20/04/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.14},{"w":"20/04/2026","cat":"Undiagnosed","occ":9,"cls":"Other","pct":0.32},
+{"w":"27/04/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"27/04/2026","cat":"Controller","occ":14,"cls":"On Going Solution","pct":0.50},{"w":"27/04/2026","cat":"ECU","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"27/04/2026","cat":"IOT","occ":11,"cls":"Known Root Cause","pct":0.39},{"w":"27/04/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"27/04/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"27/04/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"27/04/2026","cat":"Throttle","occ":21,"cls":"Known Root Cause","pct":0.75},{"w":"27/04/2026","cat":"Undiagnosed","occ":20,"cls":"Other","pct":0.71},
+{"w":"04/05/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"04/05/2026","cat":"Cluster","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"04/05/2026","cat":"Controller","occ":7,"cls":"On Going Solution","pct":0.25},{"w":"04/05/2026","cat":"ECU","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"04/05/2026","cat":"IOT","occ":6,"cls":"Known Root Cause","pct":0.22},{"w":"04/05/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"04/05/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"04/05/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"04/05/2026","cat":"Side Stand Sensor","occ":6,"cls":"Known Root Cause","pct":0.22},{"w":"04/05/2026","cat":"Throttle","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"04/05/2026","cat":"Undiagnosed","occ":9,"cls":"Other","pct":0.32},
+{"w":"11/05/2026","cat":"Controller","occ":4,"cls":"On Going Solution","pct":0.14},{"w":"11/05/2026","cat":"IOT","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"11/05/2026","cat":"Main Harness","occ":4,"cls":"Known Root Cause","pct":0.14},{"w":"11/05/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"11/05/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"11/05/2026","cat":"Throttle","occ":12,"cls":"Known Root Cause","pct":0.43},{"w":"11/05/2026","cat":"Undiagnosed","occ":5,"cls":"Other","pct":0.18},
+{"w":"18/05/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"18/05/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"18/05/2026","cat":"Controller","occ":16,"cls":"On Going Solution","pct":0.55},{"w":"18/05/2026","cat":"ECU","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"18/05/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.10},{"w":"18/05/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.03},{"w":"18/05/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.03},{"w":"18/05/2026","cat":"Throttle","occ":10,"cls":"Known Root Cause","pct":0.35},{"w":"18/05/2026","cat":"Undiagnosed","occ":16,"cls":"Other","pct":0.55},
+{"w":"25/05/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"25/05/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"25/05/2026","cat":"Controller","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"25/05/2026","cat":"ECU","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"25/05/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.10},{"w":"25/05/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.03},{"w":"25/05/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution","pct":0.10},{"w":"25/05/2026","cat":"Side Stand Sensor","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"25/05/2026","cat":"Throttle","occ":5,"cls":"On Going Solution","pct":0.17},{"w":"25/05/2026","cat":"Undiagnosed","occ":26,"cls":"Other","pct":0.88},
+{"w":"01/06/2026","cat":"Backlog","occ":4,"cls":"Backlog","pct":0.15},{"w":"01/06/2026","cat":"Battery","occ":4,"cls":"On Going Solution","pct":0.15},{"w":"01/06/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"01/06/2026","cat":"Controller","occ":6,"cls":"On Going Solution","pct":0.22},{"w":"01/06/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"01/06/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.07},{"w":"01/06/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution","pct":0.07},{"w":"01/06/2026","cat":"Side Stand Sensor","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"01/06/2026","cat":"Throttle","occ":8,"cls":"On Going Solution","pct":0.30},{"w":"01/06/2026","cat":"Undiagnosed","occ":9,"cls":"Other","pct":0.34},
+{"w":"08/06/2026","cat":"Battery","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"08/06/2026","cat":"Circuit Breaker","occ":4,"cls":"On Going Solution","pct":0.15},{"w":"08/06/2026","cat":"Controller","occ":5,"cls":"On Going Solution","pct":0.19},{"w":"08/06/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause","pct":0.04},{"w":"08/06/2026","cat":"IOT","occ":2,"cls":"Known Root Cause","pct":0.08},{"w":"08/06/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"08/06/2026","cat":"Motor","occ":4,"cls":"Known Root Cause","pct":0.15},{"w":"08/06/2026","cat":"No OS Identified","occ":1,"cls":"Other","pct":0.04},{"w":"08/06/2026","cat":"Side Stand Sensor","occ":4,"cls":"On Going Solution","pct":0.15},{"w":"08/06/2026","cat":"Throttle","occ":8,"cls":"On Going Solution","pct":0.31},{"w":"08/06/2026","cat":"Undiagnosed","occ":4,"cls":"Other","pct":0.15},
+{"w":"15/06/2026","cat":"Backlog","occ":3,"cls":"Backlog","pct":0.11},{"w":"15/06/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"15/06/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"15/06/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"15/06/2026","cat":"Controller","occ":7,"cls":"On Going Solution","pct":0.26},{"w":"15/06/2026","cat":"IOT","occ":5,"cls":"Known Root Cause","pct":0.19},{"w":"15/06/2026","cat":"Motor","occ":4,"cls":"Known Root Cause","pct":0.15},{"w":"15/06/2026","cat":"No OS Identified","occ":1,"cls":"Other","pct":0.04},{"w":"15/06/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"15/06/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.11},{"w":"15/06/2026","cat":"Throttle","occ":7,"cls":"Known Root Cause","pct":0.26},{"w":"15/06/2026","cat":"Undiagnosed","occ":13,"cls":"Other","pct":0.49},
+{"w":"22/06/2026","cat":"Backlog","occ":8,"cls":"Backlog","pct":0.29},{"w":"22/06/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"22/06/2026","cat":"Controller","occ":5,"cls":"On Going Solution","pct":0.18},{"w":"22/06/2026","cat":"IOT","occ":6,"cls":"Known Root Cause","pct":0.22},{"w":"22/06/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"22/06/2026","cat":"No OS Identified","occ":3,"cls":"Other","pct":0.11},{"w":"22/06/2026","cat":"Side Stand Sensor","occ":3,"cls":"On Going Solution","pct":0.11},{"w":"22/06/2026","cat":"Throttle","occ":7,"cls":"On Going Solution","pct":0.26},{"w":"22/06/2026","cat":"Undiagnosed","occ":4,"cls":"Other","pct":0.15}
+];
+
+const rawCOM=[
+{"w":"05/01/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.09},{"w":"05/01/2026","cat":"IOT","occ":5,"cls":"Known Root Cause","pct":0.44},{"w":"05/01/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.09},{"w":"05/01/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.09},{"w":"05/01/2026","cat":"Throttle","occ":2,"cls":"Known Root Cause","pct":0.17},{"w":"05/01/2026","cat":"Undiagnosed","occ":6,"cls":"Other","pct":0.52},
+{"w":"12/01/2026","cat":"Alarm","occ":3,"cls":"On Going Solution","pct":0.25},{"w":"12/01/2026","cat":"IOT","occ":4,"cls":"Known Root Cause","pct":0.33},{"w":"12/01/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.17},{"w":"12/01/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.17},{"w":"12/01/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.08},{"w":"12/01/2026","cat":"Throttle","occ":2,"cls":"Known Root Cause","pct":0.17},{"w":"12/01/2026","cat":"Undiagnosed","occ":2,"cls":"Other","pct":0.17},
+{"w":"19/01/2026","cat":"Alarm","occ":1,"cls":"On Going Solution","pct":0.08},{"w":"19/01/2026","cat":"Controller","occ":3,"cls":"On Going Solution","pct":0.25},{"w":"19/01/2026","cat":"IOT","occ":8,"cls":"Known Root Cause","pct":0.65},{"w":"19/01/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.16},{"w":"19/01/2026","cat":"Motor","occ":5,"cls":"Known Root Cause","pct":0.41},{"w":"19/01/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.08},{"w":"19/01/2026","cat":"Throttle","occ":3,"cls":"Known Root Cause","pct":0.25},{"w":"19/01/2026","cat":"Undiagnosed","occ":4,"cls":"Other","pct":0.33},
+{"w":"26/01/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.08},{"w":"26/01/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.08},{"w":"26/01/2026","cat":"IOT","occ":7,"cls":"Known Root Cause","pct":0.56},{"w":"26/01/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.08},{"w":"26/01/2026","cat":"Secondary Harness","occ":3,"cls":"On Going Solution","pct":0.24},{"w":"26/01/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.24},{"w":"26/01/2026","cat":"Throttle","occ":1,"cls":"Known Root Cause","pct":0.08},{"w":"26/01/2026","cat":"Undiagnosed","occ":6,"cls":"Other","pct":0.48},
+{"w":"02/02/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.08},{"w":"02/02/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause","pct":0.08},{"w":"02/02/2026","cat":"IOT","occ":4,"cls":"Known Root Cause","pct":0.32},{"w":"02/02/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.24},{"w":"02/02/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.24},{"w":"02/02/2026","cat":"Throttle","occ":2,"cls":"Known Root Cause","pct":0.16},{"w":"02/02/2026","cat":"Undiagnosed","occ":3,"cls":"Other","pct":0.24},
+{"w":"09/02/2026","cat":"Backlog","occ":2,"cls":"Backlog","pct":0.15},{"w":"09/02/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.08},{"w":"09/02/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause","pct":0.08},{"w":"09/02/2026","cat":"IOT","occ":1,"cls":"Known Root Cause","pct":0.08},{"w":"09/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.15},{"w":"09/02/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.08},{"w":"09/02/2026","cat":"Undiagnosed","occ":3,"cls":"Other","pct":0.23},
+{"w":"16/02/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"16/02/2026","cat":"ECU","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"16/02/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.22},{"w":"16/02/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.15},{"w":"16/02/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"16/02/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.07},{"w":"16/02/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.30},{"w":"16/02/2026","cat":"Undiagnosed","occ":4,"cls":"Other","pct":0.30},
+{"w":"23/02/2026","cat":"Backlog","occ":1,"cls":"Backlog","pct":0.07},{"w":"23/02/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"23/02/2026","cat":"Controller","occ":3,"cls":"On Going Solution","pct":0.21},{"w":"23/02/2026","cat":"IOT","occ":2,"cls":"Known Root Cause","pct":0.14},{"w":"23/02/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.07},{"w":"23/02/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.07},{"w":"23/02/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"23/02/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause","pct":0.14},{"w":"23/02/2026","cat":"Throttle","occ":1,"cls":"Known Root Cause","pct":0.07},{"w":"23/02/2026","cat":"Undiagnosed","occ":6,"cls":"Other","pct":0.43},
+{"w":"02/03/2026","cat":"Backlog","occ":2,"cls":"Backlog","pct":0.14},{"w":"02/03/2026","cat":"Controller","occ":2,"cls":"On Going Solution","pct":0.14},{"w":"02/03/2026","cat":"Hall Sensor","occ":1,"cls":"Unknown Root Cause","pct":0.07},{"w":"02/03/2026","cat":"IOT","occ":5,"cls":"Known Root Cause","pct":0.35},{"w":"02/03/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.14},{"w":"02/03/2026","cat":"Motor","occ":2,"cls":"Known Root Cause","pct":0.14},{"w":"02/03/2026","cat":"Secondary Harness","occ":2,"cls":"On Going Solution","pct":0.14},{"w":"02/03/2026","cat":"Undiagnosed","occ":8,"cls":"Other","pct":0.56},
+{"w":"09/03/2026","cat":"Backlog","occ":1,"cls":"Backlog","pct":0.07},{"w":"09/03/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"09/03/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"09/03/2026","cat":"Controller","occ":11,"cls":"On Going Solution","pct":0.76},{"w":"09/03/2026","cat":"IOT","occ":4,"cls":"Known Root Cause","pct":0.28},{"w":"09/03/2026","cat":"Main Harness","occ":3,"cls":"Known Root Cause","pct":0.21},{"w":"09/03/2026","cat":"Secondary Harness","occ":4,"cls":"On Going Solution","pct":0.28},{"w":"09/03/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.21},{"w":"09/03/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.28},{"w":"09/03/2026","cat":"Undiagnosed","occ":7,"cls":"Other","pct":0.48},
+{"w":"16/03/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.07},{"w":"16/03/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.20},{"w":"16/03/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.07},{"w":"16/03/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.20},{"w":"16/03/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.27},{"w":"16/03/2026","cat":"Undiagnosed","occ":3,"cls":"Other","pct":0.20},
+{"w":"23/03/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.06},{"w":"23/03/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.06},{"w":"23/03/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.18},{"w":"23/03/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.12},{"w":"23/03/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.18},{"w":"23/03/2026","cat":"Side Stand Sensor","occ":2,"cls":"Known Root Cause","pct":0.12},{"w":"23/03/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.24},{"w":"23/03/2026","cat":"Undiagnosed","occ":3,"cls":"Other","pct":0.18},
+{"w":"30/03/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.06},{"w":"30/03/2026","cat":"IOT","occ":2,"cls":"Known Root Cause","pct":0.11},{"w":"30/03/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.06},{"w":"30/03/2026","cat":"Motor","occ":4,"cls":"Known Root Cause","pct":0.23},{"w":"30/03/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.06},{"w":"30/03/2026","cat":"Undiagnosed","occ":6,"cls":"Other","pct":0.34},
+{"w":"06/04/2026","cat":"DCDC","occ":1,"cls":"On Going Solution","pct":0.05},{"w":"06/04/2026","cat":"IOT","occ":1,"cls":"Known Root Cause","pct":0.05},{"w":"06/04/2026","cat":"In Loco","occ":1,"cls":"Other","pct":0.05},{"w":"06/04/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.05},{"w":"06/04/2026","cat":"No OS Identified","occ":1,"cls":"Other","pct":0.05},{"w":"06/04/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.05},{"w":"06/04/2026","cat":"Undiagnosed","occ":11,"cls":"Other","pct":0.59},
+{"w":"13/04/2026","cat":"IOT","occ":1,"cls":"Known Root Cause","pct":0.05},{"w":"13/04/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.15},{"w":"13/04/2026","cat":"Throttle","occ":5,"cls":"Known Root Cause","pct":0.24},{"w":"13/04/2026","cat":"Undiagnosed","occ":4,"cls":"Other","pct":0.20},
+{"w":"20/04/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.05},{"w":"20/04/2026","cat":"Cluster","occ":1,"cls":"On Going Solution","pct":0.05},{"w":"20/04/2026","cat":"IOT","occ":2,"cls":"Known Root Cause","pct":0.09},{"w":"20/04/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.09},{"w":"20/04/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.05},{"w":"20/04/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.05},{"w":"20/04/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.18},{"w":"20/04/2026","cat":"Undiagnosed","occ":4,"cls":"Other","pct":0.18},
+{"w":"27/04/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"27/04/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"27/04/2026","cat":"IOT","occ":3,"cls":"Known Root Cause","pct":0.13},{"w":"27/04/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"27/04/2026","cat":"Motor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"27/04/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"27/04/2026","cat":"Throttle","occ":2,"cls":"Known Root Cause","pct":0.09},{"w":"27/04/2026","cat":"Undiagnosed","occ":10,"cls":"Other","pct":0.44},
+{"w":"04/05/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"04/05/2026","cat":"IOT","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"04/05/2026","cat":"Main Harness","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"04/05/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"04/05/2026","cat":"Undiagnosed","occ":11,"cls":"Other","pct":0.43},
+{"w":"11/05/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.04},{"w":"11/05/2026","cat":"IOT","occ":5,"cls":"Known Root Cause","pct":0.18},{"w":"11/05/2026","cat":"In Loco","occ":1,"cls":"Other","pct":0.04},{"w":"11/05/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.04},{"w":"11/05/2026","cat":"Undiagnosed","occ":8,"cls":"Other","pct":0.28},
+{"w":"18/05/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"18/05/2026","cat":"Controller","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"18/05/2026","cat":"IOT","occ":6,"cls":"Known Root Cause","pct":0.19},{"w":"18/05/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.06},{"w":"18/05/2026","cat":"Motor","occ":4,"cls":"Known Root Cause","pct":0.12},{"w":"18/05/2026","cat":"Side Stand Sensor","occ":3,"cls":"Known Root Cause","pct":0.09},{"w":"18/05/2026","cat":"Throttle","occ":3,"cls":"Known Root Cause","pct":0.09},{"w":"18/05/2026","cat":"Undiagnosed","occ":12,"cls":"Other","pct":0.37},
+{"w":"25/05/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"25/05/2026","cat":"IOT","occ":7,"cls":"Known Root Cause","pct":0.20},{"w":"25/05/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.06},{"w":"25/05/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.09},{"w":"25/05/2026","cat":"No OS Identified","occ":1,"cls":"Other","pct":0.03},{"w":"25/05/2026","cat":"Side Stand Sensor","occ":3,"cls":"On Going Solution","pct":0.09},{"w":"25/05/2026","cat":"Throttle","occ":2,"cls":"On Going Solution","pct":0.06},{"w":"25/05/2026","cat":"Undiagnosed","occ":17,"cls":"Other","pct":0.48},
+{"w":"01/06/2026","cat":"Circuit Breaker","occ":2,"cls":"On Going Solution","pct":0.05},{"w":"01/06/2026","cat":"IOT","occ":7,"cls":"Known Root Cause","pct":0.19},{"w":"01/06/2026","cat":"No OS Identified","occ":1,"cls":"Other","pct":0.03},{"w":"01/06/2026","cat":"Side Stand Sensor","occ":2,"cls":"On Going Solution","pct":0.05},{"w":"01/06/2026","cat":"Throttle","occ":1,"cls":"On Going Solution","pct":0.03},{"w":"01/06/2026","cat":"Undiagnosed","occ":4,"cls":"Other","pct":0.11},
+{"w":"08/06/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"08/06/2026","cat":"Controller","occ":3,"cls":"On Going Solution","pct":0.07},{"w":"08/06/2026","cat":"DCDC","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"08/06/2026","cat":"IOT","occ":4,"cls":"Known Root Cause","pct":0.10},{"w":"08/06/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.05},{"w":"08/06/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.07},{"w":"08/06/2026","cat":"No OS Identified","occ":1,"cls":"Other","pct":0.02},{"w":"08/06/2026","cat":"Side Stand Sensor","occ":3,"cls":"On Going Solution","pct":0.07},{"w":"08/06/2026","cat":"Throttle","occ":3,"cls":"On Going Solution","pct":0.07},{"w":"08/06/2026","cat":"Undiagnosed","occ":9,"cls":"Other","pct":0.22},
+{"w":"15/06/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"15/06/2026","cat":"Controller","occ":3,"cls":"On Going Solution","pct":0.07},{"w":"15/06/2026","cat":"DCDC","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"15/06/2026","cat":"ECU","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"15/06/2026","cat":"IOT","occ":6,"cls":"Known Root Cause","pct":0.14},{"w":"15/06/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.07},{"w":"15/06/2026","cat":"Secondary Harness","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"15/06/2026","cat":"Side Stand Sensor","occ":1,"cls":"Known Root Cause","pct":0.02},{"w":"15/06/2026","cat":"Throttle","occ":4,"cls":"Known Root Cause","pct":0.09},{"w":"15/06/2026","cat":"Undiagnosed","occ":15,"cls":"Other","pct":0.35},
+{"w":"22/06/2026","cat":"Backlog","occ":4,"cls":"Backlog","pct":0.09},{"w":"22/06/2026","cat":"Battery","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"22/06/2026","cat":"Circuit Breaker","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"22/06/2026","cat":"IOT","occ":5,"cls":"Known Root Cause","pct":0.11},{"w":"22/06/2026","cat":"Main Harness","occ":2,"cls":"Known Root Cause","pct":0.04},{"w":"22/06/2026","cat":"Motor","occ":3,"cls":"Known Root Cause","pct":0.06},{"w":"22/06/2026","cat":"No OS Identified","occ":6,"cls":"Other","pct":0.13},{"w":"22/06/2026","cat":"Side Stand Sensor","occ":1,"cls":"On Going Solution","pct":0.02},{"w":"22/06/2026","cat":"Throttle","occ":2,"cls":"On Going Solution","pct":0.04},{"w":"22/06/2026","cat":"Undiagnosed","occ":14,"cls":"Other","pct":0.30}
+];
+
+function sortWeeks(wks){return[...wks].sort((a,b)=>{const[da,ma,ya]=a.split('/');const[db,mb,yb]=b.split('/');return new Date(`${ya}-${ma}-${da}`)-new Date(`${yb}-${mb}-${db}`);});}
+
+function buildTop5(raw){
+  const weeks=sortWeeks([...new Set(raw.map(r=>r.w))]);
+  const lw=weeks[weeks.length-1],lw1=weeks[weeks.length-2];
+  const lwData={},lw1Data={},lwCls={},lwPct={};
+  raw.forEach(r=>{
+    if(r.w===lw){lwData[r.cat]=(lwData[r.cat]||0)+r.occ;lwCls[r.cat]=r.cls;lwPct[r.cat]=(lwPct[r.cat]||0)+r.pct;}
+    if(r.w===lw1){lw1Data[r.cat]=(lw1Data[r.cat]||0)+r.occ;}
+  });
+  const sorted=Object.entries(lwData).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const totLw=Object.values(lwData).reduce((s,v)=>s+v,0);
+  const totPct=Object.values(lwPct).reduce((s,v)=>s+v,0);
+  return{rows:sorted.map(([cat,occ])=>({cat,occ,cls:lwCls[cat],pct:lwPct[cat]||0,prev:lw1Data[cat]||null})),totLw,totPct:totPct.toFixed(2),lw};
+}
+
+function renderTable(tbodyId, metaId, raw, frota){
+  const{rows,totLw,totPct,lw}=buildTop5(raw);
+  const maxOcc=rows[0]?.occ||1;
+  document.getElementById(metaId).textContent=`frota ${frota.toLocaleString('pt-BR')} · ${totLw} casos · ${totPct}%`;
+  const tbody=document.getElementById(tbodyId);
+  tbody.innerHTML=rows.map((r,i)=>{
+    const delta=r.prev!==null?r.occ-r.prev:null;
+    const trendHtml=delta===null?`<span class="trend neu">▲ novo</span>`:delta>0?`<span class="trend up">▲ +${delta}</span>`:delta<0?`<span class="trend dn">▼ ${delta}</span>`:`<span class="trend neu">–</span>`;
+    const barW=Math.round((r.occ/maxOcc)*100);
+    const barCol=COLORS[r.cls]||'#ccc';
+    return`<tr>
+      <td class="rank">${String(i+1).padStart(2,'0')}</td>
+      <td>${r.cat}</td>
+      <td><span class="badge ${BADGE[r.cls]||'oth'}">${BADGE_LABEL[r.cls]||r.cls}</span></td>
+      <td class="r">${r.occ}</td>
+      <td class="r"><div class="bar-wrap"><div class="bar-track"><div class="bar-fill" style="width:${barW}%;background:${barCol}"></div></div><span class="pct-val">${r.pct.toFixed(2)}%</span></div></td>
+      <td class="r">${trendHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+function makeChart(id,raw){
+  const weeks=sortWeeks([...new Set(raw.map(r=>r.w))]);
+  const labels=weeks.map(w=>{const[d,m]=w.split('/');return`${d}/${m}`;});
+  const pctAgg={},occAgg={};
+  weeks.forEach(w=>{pctAgg[w]={};occAgg[w]={};ORDER.forEach(c=>{pctAgg[w][c]=0;occAgg[w][c]=0;});});
+  raw.forEach(r=>{pctAgg[r.w][r.cls]=(pctAgg[r.w][r.cls]||0)+r.pct;occAgg[r.w][r.cls]=(occAgg[r.w][r.cls]||0)+r.occ;});
+  const totals=weeks.map(w=>parseFloat(ORDER.reduce((s,c)=>s+(pctAgg[w][c]||0),0).toFixed(1)));
+  const barDatasets=ORDER.map(cls=>({label:cls,data:weeks.map(w=>parseFloat((pctAgg[w][cls]||0).toFixed(2))),occData:weeks.map(w=>occAgg[w][cls]||0),backgroundColor:COLORS[cls],borderWidth:0,stack:'total',order:0}));
+  const rainDataset={type:'line',label:'Rainfall SP (mm)',data:RAIN_SP.slice(0,weeks.length),borderColor:'#1565C0',backgroundColor:'transparent',borderWidth:2,pointRadius:3,pointBackgroundColor:'#1565C0',fill:false,tension:0.3,yAxisID:'yRain',order:1};
+  const labelsPlugin={id:'barLabels',afterDatasetsDraw(chart){
+    const{ctx:c,scales:{x,y}}=chart;c.save();
+    chart.data.datasets.forEach((ds,di)=>{
+      if(!ds.occData)return;
+      ds.data.forEach((val,i)=>{
+        if(val<=0)return;
+        const meta=chart.getDatasetMeta(di),bar=meta.data[i];
+        if(!bar)return;
+        const barH=bar.height||0;if(barH<9)return;
+        const occ=ds.occData[i];if(!occ)return;
+        c.font=`600 ${barH>=14?9:7}px Arial`;c.fillStyle='rgba(0,0,0,0.75)';c.textAlign='center';c.textBaseline='middle';
+        c.fillText(occ,bar.x,bar.y+barH/2);
+      });
+    });
+    c.font='700 11px Arial';c.fillStyle='#222';c.textAlign='center';c.textBaseline='bottom';
+    totals.forEach((val,i)=>{c.fillText(val.toFixed(1)+'%',x.getPixelForValue(i),y.getPixelForValue(val)-3);});
+    c.restore();
+  }};
+  new Chart(document.getElementById(id).getContext('2d'),{
+    type:'bar',data:{labels,datasets:[...barDatasets,rainDataset]},plugins:[labelsPlugin],
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.dataset.label==='Rainfall SP (mm)'?` Rainfall: ${ctx.parsed.y}mm`:` ${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}% (${ctx.dataset.occData?ctx.dataset.occData[ctx.dataIndex]:''} cases)`}}},
+      scales:{
+        x:{stacked:true,ticks:{font:{size:9},autoSkip:false,maxRotation:45},grid:{display:false}},
+        y:{stacked:true,min:0,max:4,ticks:{font:{size:10},callback:v=>v.toFixed(1)+'%',stepSize:0.5},grid:{color:'rgba(0,0,0,0.06)'}},
+        yRain:{type:'linear',position:'right',min:0,max:120,ticks:{font:{size:10},callback:v=>v+'mm',color:'#1565C0',stepSize:30},grid:{display:false}}
+      }
+    }
+  });
+}
+
+window.addEventListener('load',()=>{
+  makeChart('cpxChart',rawCPX);
+  makeChart('comfortChart',rawCOM);
+  renderTable('cpxTbody','cpxMeta',rawCPX,2987);
+  renderTable('comTbody','comMeta',rawCOM,3861);
+});
+
+document.getElementById('export-btn').addEventListener('click',()=>{
+  html2canvas(document.getElementById('slide'),{scale:3,backgroundColor:'#ffffff',useCORS:true,logging:false}).then(canvas=>{
+    canvas.toBlob(blob=>{const a=document.createElement('a');a.download='WBR_Charts_29jun.png';a.href=URL.createObjectURL(blob);a.click();URL.revokeObjectURL(a.href);},'image/png',1.0);
+  });
+});
+</script>
+</body>
+</html>
